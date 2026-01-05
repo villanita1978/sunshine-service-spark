@@ -1020,40 +1020,6 @@ const Admin = () => {
                       className="input-field w-full"
                     />
                   </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <label className="text-sm font-medium text-foreground mb-2 block">السعر الافتراضي ($)</label>
-                      <input
-                        type="number"
-                        placeholder="0"
-                        value={productForm.price}
-                        onChange={(e) => setProductForm({ ...productForm, price: parseFloat(e.target.value) || 0 })}
-                        className="input-field w-full"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-foreground mb-2 block">المدة</label>
-                      <input
-                        type="text"
-                        placeholder="شهر واحد"
-                        value={productForm.duration}
-                        onChange={(e) => setProductForm({ ...productForm, duration: e.target.value })}
-                        className="input-field w-full"
-                      />
-                    </div>
-                    {!productForm.instant_delivery && (
-                      <div>
-                        <label className="text-sm font-medium text-foreground mb-2 block">الكمية المتوفرة</label>
-                        <input
-                          type="number"
-                          placeholder="0"
-                          value={productForm.available}
-                          onChange={(e) => setProductForm({ ...productForm, available: parseInt(e.target.value) || 0 })}
-                          className="input-field w-full"
-                        />
-                      </div>
-                    )}
-                  </div>
                 </div>
               </div>
 
