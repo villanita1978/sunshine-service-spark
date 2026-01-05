@@ -94,13 +94,13 @@ const OrderCard = ({
         </button>
       </div>
 
-      <div className="space-y-3 mt-3 pt-3 border-t border-border">
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-medium whitespace-nowrap">الحالة:</span>
+      <div className="mt-4 pt-4 border-t border-border bg-muted/30 -mx-4 -mb-4 px-4 pb-4 rounded-b-lg">
+        <div className="flex items-center gap-3 mb-3">
+          <label className="text-sm font-bold text-foreground">الحالة:</label>
           <select
             value={selectedStatus}
             onChange={(e) => setSelectedStatus(e.target.value)}
-            className="input-field text-sm py-2 px-3 min-w-[150px]"
+            className="input-field text-sm py-2 px-3 flex-1 max-w-[200px]"
           >
             <option value="pending">قيد الانتظار</option>
             <option value="completed">مكتمل</option>
@@ -108,12 +108,12 @@ const OrderCard = ({
           </select>
         </div>
         
-        <div className="space-y-1">
-          <label className="text-sm font-medium block">رسالة للعميل (اختياري):</label>
+        <div className="mb-3">
+          <label className="text-sm font-bold text-foreground block mb-2">💬 رسالة للعميل:</label>
           <textarea
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            className="input-field w-full text-sm resize-none"
+            className="input-field w-full text-sm resize-none border-2 border-primary/20"
             rows={3}
             placeholder="اكتب رسالة تظهر للعميل عند تحديث الحالة..."
           />
@@ -121,7 +121,7 @@ const OrderCard = ({
 
         <button 
           onClick={handleSubmit}
-          className="btn-primary w-full py-2.5 text-sm flex items-center justify-center gap-2 font-medium"
+          className="btn-primary w-full py-3 text-sm flex items-center justify-center gap-2 font-bold"
         >
           <Save className="w-4 h-4" />
           تحديث الطلب
