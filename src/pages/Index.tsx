@@ -180,13 +180,26 @@ const Index = () => {
           table: 'orders',
           filter: `id=eq.${currentOrderId}`
         },
-        (payload) => {
-          const updatedOrder = payload.new as { status: string; response_message: string | null };
+        async (payload) => {
+          const updatedOrder = payload.new as { status: string; response_message: string | null; amount: number };
           setOrderStatus(updatedOrder.status);
           setResponseMessage(updatedOrder.response_message);
           
           // Only show result for completed or rejected status
           if (updatedOrder.status === 'completed' || updatedOrder.status === 'rejected') {
+            // Refund the amount if rejected
+            if (updatedOrder.status === 'rejected' && tokenData) {
+              const refundAmount = Number(updatedOrder.amount);
+              const newBalance = (tokenBalance || 0) + refundAmount;
+              
+              await supabase
+                .from('tokens')
+                .update({ balance: newBalance })
+                .eq('id', tokenData.id);
+              
+              setTokenBalance(newBalance);
+            }
+            
             setResult(updatedOrder.status === 'completed' ? 'success' : 'error');
             setStep('result');
           }
