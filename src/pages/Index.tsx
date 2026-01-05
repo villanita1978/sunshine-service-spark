@@ -216,6 +216,13 @@ const Index = () => {
                       ))}
                     </SelectContent>
                   </Select>
+
+                  {product && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      السعر: <span className="font-semibold text-primary">${product.price}</span>
+                      {product.duration && <span className="mr-2">• المدة: {product.duration}</span>}
+                    </p>
+                  )}
                 </div>
 
                 {product && options.length > 0 && (
