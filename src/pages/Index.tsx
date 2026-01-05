@@ -187,251 +187,231 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <Header />
 
-      <main className="container mx-auto px-4 py-6">
-        {/* Main Content - Two Column Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Buy Here Card */}
-          <div className="card-simple p-6">
-            <div className="flex items-center gap-2 mb-2">
-              <ShoppingCart className="w-5 h-5 text-foreground" />
-              <h2 className="text-xl font-bold">اشتري من هنا</h2>
-            </div>
-            <p className="text-sm text-muted-foreground mb-4">
-              اختر المنتج، ادخل التوكن
-            </p>
+      <main className="container mx-auto px-4 py-6 max-w-md">
+        {/* Single Card Layout */}
+        <div className="card-simple p-6">
+          <div className="flex items-center gap-2 mb-2">
+            <ShoppingCart className="w-5 h-5 text-primary" />
+            <h2 className="text-xl font-bold text-primary">اشتري من هنا</h2>
+          </div>
+          <p className="text-sm text-muted-foreground mb-4">
+            اختر المنتج، ادخل التوكن
+          </p>
 
-            {step === 'initial' && (
-              <div className="space-y-4">
+          {step === 'initial' && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">اختر المنتج</label>
+                <Select value={selectedProductId} onValueChange={handleProductChange}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="اختر منتج..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {products.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name} {p.duration && `- ${p.duration}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {product && options.length > 0 && (
                 <div>
-                  <label className="block text-sm font-medium mb-2">اختر المنتج</label>
-                  <Select value={selectedProductId} onValueChange={handleProductChange}>
+                  <label className="block text-sm font-medium mb-2">اختر نوع الخدمة</label>
+                  <Select value={selectedOptionId} onValueChange={setSelectedOptionId}>
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="اختر منتج..." />
+                      <SelectValue placeholder="اختر نوع الخدمة..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {products.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.name} {p.duration && `- ${p.duration}`}
+                      {options.map((opt) => (
+                        <SelectItem key={opt.id} value={opt.id}>
+                          {opt.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+
+                  {selectedOption && (
+                    <div className="mt-2 p-2 bg-muted rounded-lg">
+                      <p className="text-xs text-muted-foreground">
+                        {selectedOption.description}
+                      </p>
+                      <p className="text-sm font-semibold text-primary mt-1">
+                        السعر: ${selectedOption.price}
+                      </p>
+                    </div>
+                  )}
                 </div>
+              )}
 
-                {product && options.length > 0 && (
-                  <div>
-                    <label className="block text-sm font-medium mb-2">اختر نوع الخدمة</label>
-                    <Select value={selectedOptionId} onValueChange={setSelectedOptionId}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="اختر نوع الخدمة..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {options.map((opt) => (
-                          <SelectItem key={opt.id} value={opt.id}>
-                            {opt.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-
-                    {selectedOption && (
-                      <div className="mt-2 p-2 bg-muted rounded-lg">
-                        <p className="text-xs text-muted-foreground">
-                          {selectedOption.description}
-                        </p>
-                        <p className="text-sm font-semibold text-primary mt-1">
-                          السعر: ${selectedOption.price}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div>
-                  <label className="block text-sm font-medium mb-2">التوكن</label>
-                  <input
-                    type="text"
-                    value={token}
-                    onChange={(e) => setToken(e.target.value)}
-                    className="input-field w-full"
-                    placeholder="ادخل التوكن الخاص بك"
-                  />
-                </div>
-
-                <button
-                  onClick={handleBuySubmit}
-                  disabled={!token.trim() || !selectedProductId || !selectedOptionId || isLoading}
-                  className="btn-primary w-full py-3 disabled:opacity-50"
-                >
-                  {isLoading ? 'جاري التحقق...' : 'متابعة'}
-                </button>
-              </div>
-            )}
-
-            {step === 'details' && product && selectedOption && tokenBalance !== null && (
-              <div className="space-y-4">
-                <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">رصيد التوكن:</span>
-                    <span className="font-bold text-primary">${tokenBalance}</span>
-                  </div>
-                  <div className="flex items-center justify-between mt-1">
-                    <span className="text-sm text-muted-foreground">سعر الخدمة:</span>
-                    <span className="font-bold">${selectedOption.price}</span>
-                  </div>
-                  <div className="border-t border-border mt-2 pt-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">المتبقي بعد الخصم:</span>
-                      <span className={`font-bold ${tokenBalance >= Number(selectedOption.price) ? 'text-green-600' : 'text-red-600'}`}>
-                        ${tokenBalance - Number(selectedOption.price)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {selectedOption.type === 'student_verification' && (
-                  <div>
-                    <label className="block text-sm font-medium mb-2">رابط التحقق</label>
-                    <input
-                      type="text"
-                      value={verificationLink}
-                      onChange={(e) => setVerificationLink(e.target.value)}
-                      className="input-field w-full"
-                      placeholder="ادخل رابط التحقق الطلابي"
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      الوقت المتوقع: {selectedOption.estimated_time}
-                    </p>
-                  </div>
-                )}
-
-                {selectedOption.type === 'full_activation' && (
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-sm font-medium mb-2">الإيميل</label>
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="input-field w-full"
-                        placeholder="ادخل إيميل الحساب"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-2">الباسورد</label>
-                      <input
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="input-field w-full"
-                        placeholder="ادخل باسورد الحساب"
-                      />
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      الوقت المتوقع: {selectedOption.estimated_time}
-                    </p>
-                  </div>
-                )}
-
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setStep('initial')}
-                    className="flex-1 py-3 border border-border rounded-lg text-muted-foreground hover:bg-muted transition-colors"
-                  >
-                    رجوع
-                  </button>
-                  <button
-                    onClick={handleOrderSubmit}
-                    disabled={
-                      isLoading ||
-                      tokenBalance < Number(selectedOption.price) ||
-                      (selectedOption.type === 'student_verification' && !verificationLink.trim()) ||
-                      (selectedOption.type === 'full_activation' && (!email.trim() || !password.trim()))
-                    }
-                    className="btn-primary flex-1 py-3 disabled:opacity-50"
-                  >
-                    {isLoading ? 'جاري المعالجة...' : 'إرسال الطلب'}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {step === 'result' && product && (
-              <div className="space-y-4 text-center py-4">
-                {result === 'success' ? (
-                  <>
-                    <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto">
-                      <CheckCircle className="w-8 h-8 text-green-600" />
-                    </div>
-                    <h3 className="text-lg font-bold text-green-600">تم إرسال الطلب بنجاح!</h3>
-                    <p className="text-sm text-muted-foreground">
-                      سيتم تفعيل الخدمة خلال {selectedOption?.estimated_time}
-                    </p>
-                    <div className="p-3 rounded-lg bg-muted">
-                      <p className="text-sm">الرصيد المتبقي: <span className="font-bold">${tokenBalance}</span></p>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto">
-                      <AlertCircle className="w-8 h-8 text-red-600" />
-                    </div>
-                    <h3 className="text-lg font-bold text-red-600">فشل في إرسال الطلب</h3>
-                    <p className="text-sm text-muted-foreground">
-                      الرصيد غير كافي لإتمام العملية
-                    </p>
-                  </>
-                )}
-                <button
-                  onClick={handleReset}
-                  className="btn-primary w-full py-3 mt-4"
-                >
-                  طلب جديد
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Info Card */}
-          <div className="card-simple p-6">
-            <div className="flex items-center gap-2 mb-2">
-              <Search className="w-5 h-5 text-primary" />
-              <h2 className="text-xl font-bold text-primary">معلومات الرصيد</h2>
-            </div>
-            <p className="text-sm text-muted-foreground mb-4">
-              البحث عن التفعيل - سجل المعاملات - الرصيد
-            </p>
-
-            <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-2">التوكن</label>
                 <input
                   type="text"
                   value={token}
-                  onChange={(e) => { setToken(e.target.value); setShowBalance(false); }}
+                  onChange={(e) => setToken(e.target.value)}
                   className="input-field w-full"
                   placeholder="ادخل التوكن الخاص بك"
                 />
               </div>
 
               <button
-                onClick={handleShowBalance}
-                disabled={!token.trim() || isLoading}
+                onClick={handleBuySubmit}
+                disabled={!token.trim() || !selectedProductId || !selectedOptionId || isLoading}
                 className="btn-primary w-full py-3 disabled:opacity-50"
               >
-                {isLoading ? 'جاري التحقق...' : 'عرض السجل والرصيد'}
+                {isLoading ? 'جاري التحقق...' : 'متابعة'}
               </button>
 
-              {showBalance && tokenBalance !== null && (
-                <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
+              {/* Balance Check Section */}
+              <div className="border-t border-border pt-4 mt-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Search className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">أو تحقق من رصيدك</span>
+                </div>
+                <button
+                  onClick={handleShowBalance}
+                  disabled={!token.trim() || isLoading}
+                  className="w-full py-2 border border-border rounded-lg text-sm text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
+                >
+                  {isLoading ? 'جاري التحقق...' : 'عرض الرصيد'}
+                </button>
+
+                {showBalance && tokenBalance !== null && (
+                  <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 mt-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">الرصيد الحالي:</span>
+                      <span className="text-lg font-bold text-primary">${tokenBalance}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {step === 'details' && product && selectedOption && tokenBalance !== null && (
+            <div className="space-y-4">
+              <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">رصيد التوكن:</span>
+                  <span className="font-bold text-primary">${tokenBalance}</span>
+                </div>
+                <div className="flex items-center justify-between mt-1">
+                  <span className="text-sm text-muted-foreground">سعر الخدمة:</span>
+                  <span className="font-bold">${selectedOption.price}</span>
+                </div>
+                <div className="border-t border-border mt-2 pt-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">الرصيد الحالي:</span>
-                    <span className="text-2xl font-bold text-primary">${tokenBalance}</span>
+                    <span className="text-sm font-medium">المتبقي بعد الخصم:</span>
+                    <span className={`font-bold ${tokenBalance >= Number(selectedOption.price) ? 'text-green-600' : 'text-red-600'}`}>
+                      ${tokenBalance - Number(selectedOption.price)}
+                    </span>
                   </div>
                 </div>
+              </div>
+
+              {selectedOption.type === 'verification_bypass' && (
+                <div>
+                  <label className="block text-sm font-medium mb-2">رابط التحقق</label>
+                  <input
+                    type="text"
+                    value={verificationLink}
+                    onChange={(e) => setVerificationLink(e.target.value)}
+                    className="input-field w-full"
+                    placeholder="ادخل رابط التحقق الطلابي"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    الوقت المتوقع: {selectedOption.estimated_time}
+                  </p>
+                </div>
               )}
+
+              {selectedOption.type === 'full_activation' && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">الإيميل</label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="input-field w-full"
+                      placeholder="ادخل إيميل الحساب"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">الباسورد</label>
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="input-field w-full"
+                      placeholder="ادخل باسورد الحساب"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    الوقت المتوقع: {selectedOption.estimated_time}
+                  </p>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setStep('initial')}
+                  className="flex-1 py-3 border border-border rounded-lg text-muted-foreground hover:bg-muted transition-colors"
+                >
+                  رجوع
+                </button>
+                <button
+                  onClick={handleOrderSubmit}
+                  disabled={
+                    isLoading ||
+                    tokenBalance < Number(selectedOption.price) ||
+                    (selectedOption.type === 'verification_bypass' && !verificationLink.trim()) ||
+                    (selectedOption.type === 'full_activation' && (!email.trim() || !password.trim()))
+                  }
+                  className="btn-primary flex-1 py-3 disabled:opacity-50"
+                >
+                  {isLoading ? 'جاري المعالجة...' : 'إرسال الطلب'}
+                </button>
+              </div>
             </div>
-          </div>
+          )}
+
+          {step === 'result' && (
+            <div className="space-y-4 text-center py-4">
+              {result === 'success' ? (
+                <>
+                  <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto">
+                    <CheckCircle className="w-8 h-8 text-green-600" />
+                  </div>
+                  <h3 className="text-lg font-bold text-green-600">تم إرسال الطلب بنجاح!</h3>
+                  <p className="text-sm text-muted-foreground">
+                    سيتم تفعيل الخدمة خلال {selectedOption?.estimated_time}
+                  </p>
+                  <div className="p-3 rounded-lg bg-muted">
+                    <p className="text-sm">الرصيد المتبقي: <span className="font-bold">${tokenBalance}</span></p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto">
+                    <AlertCircle className="w-8 h-8 text-red-600" />
+                  </div>
+                  <h3 className="text-lg font-bold text-red-600">فشل في إرسال الطلب</h3>
+                  <p className="text-sm text-muted-foreground">
+                    الرصيد غير كافي لإتمام العملية
+                  </p>
+                </>
+              )}
+              <button
+                onClick={handleReset}
+                className="btn-primary w-full py-3 mt-4"
+              >
+                طلب جديد
+              </button>
+            </div>
+          )}
         </div>
       </main>
     </div>
