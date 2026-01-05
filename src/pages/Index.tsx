@@ -187,9 +187,11 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <Header />
 
-      <main className="container mx-auto px-4 py-6 max-w-md">
-        {/* Single Card Layout */}
-        <div className="card-simple p-6">
+      <main className="container mx-auto px-4 py-6">
+        {/* Main Content - Two Column Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Buy Here Card */}
+          <div className="card-simple p-6">
           <div className="flex items-center gap-2 mb-2">
             <ShoppingCart className="w-5 h-5 text-primary" />
             <h2 className="text-xl font-bold text-primary">اشتري من هنا</h2>
@@ -412,6 +414,48 @@ const Index = () => {
               </button>
             </div>
           )}
+        </div>
+
+          {/* Info Card */}
+          <div className="card-simple p-6">
+            <div className="flex items-center gap-2 mb-2">
+              <Search className="w-5 h-5 text-primary" />
+              <h2 className="text-xl font-bold text-primary">معلومات الرصيد</h2>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              البحث عن التفعيل - سجل المعاملات - الرصيد
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">التوكن</label>
+                <input
+                  type="text"
+                  value={token}
+                  onChange={(e) => { setToken(e.target.value); setShowBalance(false); }}
+                  className="input-field w-full"
+                  placeholder="ادخل التوكن الخاص بك"
+                />
+              </div>
+
+              <button
+                onClick={handleShowBalance}
+                disabled={!token.trim() || isLoading}
+                className="btn-primary w-full py-3 disabled:opacity-50"
+              >
+                {isLoading ? 'جاري التحقق...' : 'عرض السجل والرصيد'}
+              </button>
+
+              {showBalance && tokenBalance !== null && (
+                <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">الرصيد الحالي:</span>
+                    <span className="text-2xl font-bold text-primary">${tokenBalance}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </main>
     </div>
