@@ -185,7 +185,8 @@ const Index = () => {
           setOrderStatus(updatedOrder.status);
           setResponseMessage(updatedOrder.response_message);
           
-          if (updatedOrder.status !== 'pending') {
+          // Only show result for completed or rejected status
+          if (updatedOrder.status === 'completed' || updatedOrder.status === 'rejected') {
             setResult(updatedOrder.status === 'completed' ? 'success' : 'error');
             setStep('result');
           }
