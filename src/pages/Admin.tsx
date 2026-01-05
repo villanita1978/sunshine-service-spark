@@ -1319,16 +1319,38 @@ const Admin = () => {
                 </div>
               )}
 
-              {/* Auto: Show note about stock */}
+              {/* Auto: Show stock management */}
               {optionForm.delivery_type === 'auto' && (
-                <div className="p-3 bg-success/5 rounded-lg border border-success/20">
-                  <p className="text-sm text-success font-medium flex items-center gap-2">
-                    <Zap className="w-4 h-4" />
-                    استلام فوري من المخزون
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    يمكنك إضافة المخزون من خلال زر "إدارة المخزون" بجانب المنتج
-                  </p>
+                <div className="p-3 bg-success/5 rounded-lg border border-success/20 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-success font-medium flex items-center gap-2">
+                        <Zap className="w-4 h-4" />
+                        استلام فوري من المخزون
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        المخزون الحالي: {editingOption ? getOptionStock(editingOption.id).length : 0} عنصر
+                      </p>
+                    </div>
+                    {editingOption && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowOptionModal(false);
+                          openStockModal(currentProductId!, editingOption.id);
+                        }}
+                        className="btn-primary text-sm px-4 py-2 flex items-center gap-2"
+                      >
+                        <Database className="w-4 h-4" />
+                        إدارة المخزون
+                      </button>
+                    )}
+                  </div>
+                  {!editingOption && (
+                    <p className="text-xs text-muted-foreground">
+                      يمكنك إضافة المخزون بعد حفظ المنتج من خلال زر "إدارة المخزون"
+                    </p>
+                  )}
                 </div>
               )}
 
