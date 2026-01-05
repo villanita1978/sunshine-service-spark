@@ -992,187 +992,221 @@ const Admin = () => {
       {/* Product Modal */}
       {showProductModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-card rounded-2xl w-full max-w-lg shadow-2xl my-8">
-            <div className="p-6 border-b border-border">
-              <h2 className="text-xl font-bold">{editingProduct ? 'تعديل القسم' : 'إضافة قسم جديد'}</h2>
-              <p className="text-sm text-muted-foreground mt-1">القسم يحتوي على المنتجات المتشابهة</p>
+          <div className="bg-card rounded-2xl w-full max-w-2xl shadow-2xl my-8">
+            {/* Header */}
+            <div className="p-6 border-b border-border bg-gradient-to-r from-primary/5 to-transparent">
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <Package className="w-5 h-5 text-primary" />
+                {editingProduct ? 'تعديل القسم' : 'إضافة قسم جديد'}
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">القسم يحتوي على المنتجات المتشابهة (مثل: حسابات جيميل)</p>
             </div>
-            <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
-              <div>
-                <label className="text-sm font-medium text-muted-foreground mb-2 block">اسم القسم *</label>
-                <input
-                  type="text"
-                  placeholder="مثال: حسابات جيميل"
-                  value={productForm.name}
-                  onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
-                  className="input-field w-full"
-                />
-              </div>
-              <div className={`grid ${productForm.instant_delivery ? 'grid-cols-1' : 'grid-cols-2'} gap-4`}>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground mb-2 block">السعر ($)</label>
-                  <input
-                    type="number"
-                    placeholder="0"
-                    value={productForm.price}
-                    onChange={(e) => setProductForm({ ...productForm, price: parseFloat(e.target.value) || 0 })}
-                    className="input-field w-full"
-                  />
-                </div>
-                {!productForm.instant_delivery && (
+            
+            <div className="p-6 space-y-6 max-h-[65vh] overflow-y-auto">
+              {/* Section 1: Basic Info */}
+              <div className="bg-muted/20 rounded-xl p-4 border border-border">
+                <h3 className="text-sm font-bold text-primary mb-4 flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs">1</span>
+                  معلومات القسم الأساسية
+                </h3>
+                <div className="space-y-4">
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground mb-2 block">المتوفر</label>
+                    <label className="text-sm font-medium text-foreground mb-2 block">اسم القسم *</label>
                     <input
-                      type="number"
-                      placeholder="0"
-                      value={productForm.available}
-                      onChange={(e) => setProductForm({ ...productForm, available: parseInt(e.target.value) || 0 })}
+                      type="text"
+                      placeholder="مثال: حسابات جيميل، حسابات نتفليكس..."
+                      value={productForm.name}
+                      onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
                       className="input-field w-full"
                     />
                   </div>
-                )}
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground mb-2 block">المدة</label>
-                <input
-                  type="text"
-                  placeholder="مثال: شهر واحد"
-                  value={productForm.duration}
-                  onChange={(e) => setProductForm({ ...productForm, duration: e.target.value })}
-                  className="input-field w-full"
-                />
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-sm font-medium text-foreground mb-2 block">السعر الافتراضي ($)</label>
+                      <input
+                        type="number"
+                        placeholder="0"
+                        value={productForm.price}
+                        onChange={(e) => setProductForm({ ...productForm, price: parseFloat(e.target.value) || 0 })}
+                        className="input-field w-full"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-foreground mb-2 block">المدة</label>
+                      <input
+                        type="text"
+                        placeholder="شهر واحد"
+                        value={productForm.duration}
+                        onChange={(e) => setProductForm({ ...productForm, duration: e.target.value })}
+                        className="input-field w-full"
+                      />
+                    </div>
+                    {!productForm.instant_delivery && (
+                      <div>
+                        <label className="text-sm font-medium text-foreground mb-2 block">الكمية المتوفرة</label>
+                        <input
+                          type="number"
+                          placeholder="0"
+                          value={productForm.available}
+                          onChange={(e) => setProductForm({ ...productForm, available: parseInt(e.target.value) || 0 })}
+                          className="input-field w-full"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
 
-              {/* Instant Delivery Toggle */}
-              <div className="border border-border rounded-lg p-4 bg-muted/30">
+              {/* Section 2: Instant Delivery */}
+              <div className="bg-success/5 rounded-xl p-4 border border-success/20">
                 <label className="flex items-center justify-between cursor-pointer">
                   <div className="flex items-center gap-3">
-                    <Zap className="w-5 h-5 text-success" />
+                    <div className="w-10 h-10 rounded-full bg-success/20 flex items-center justify-center">
+                      <Zap className="w-5 h-5 text-success" />
+                    </div>
                     <div>
-                      <p className="font-medium">استلام فوري</p>
-                      <p className="text-xs text-muted-foreground">العميل يستلم المنتج تلقائياً بعد الدفع</p>
+                      <p className="font-bold text-success">استلام فوري</p>
+                      <p className="text-xs text-muted-foreground">العميل يستلم المنتج تلقائياً من المخزون بعد الدفع</p>
                     </div>
                   </div>
                   <input
                     type="checkbox"
                     checked={productForm.instant_delivery}
                     onChange={(e) => setProductForm({ ...productForm, instant_delivery: e.target.checked })}
-                    className="w-5 h-5 accent-success"
+                    className="w-6 h-6 accent-success rounded"
                   />
                 </label>
-
-                {/* Stock Items Input - Only show for new products with instant delivery */}
-                {productForm.instant_delivery && !editingProduct && (
-                  <div className="mt-4 pt-4 border-t border-border">
-                    <label className="text-sm font-medium text-muted-foreground mb-2 block flex items-center gap-2">
-                      <Database className="w-4 h-4" />
-                      عناصر المخزون (كل سطر = عنصر واحد)
-                    </label>
-                    <textarea
-                      placeholder="أدخل كل حساب أو كود في سطر منفصل...&#10;مثال:&#10;email1@gmail.com:password1&#10;email2@gmail.com:password2"
-                      value={newStockItems}
-                      onChange={(e) => setNewStockItems(e.target.value)}
-                      className="input-field w-full h-32 font-mono text-sm"
-                    />
-                    {newStockItems.trim() && (
-                      <p className="text-xs text-success mt-2 flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3" />
-                        {newStockItems.split('\n').filter(item => item.trim()).length} عنصر سيتم إضافته للمخزون
-                      </p>
-                    )}
-                  </div>
-                )}
               </div>
 
-              {/* Products Section - Only for new categories */}
+              {/* Section 3: Products/Options */}
               {!editingProduct && (
-                <div className="border-t border-border pt-4 mt-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <label className="text-sm font-bold flex items-center gap-2">
-                      <LayoutGrid className="w-4 h-4" />
-                      المنتجات
-                    </label>
+                <div className="bg-primary/5 rounded-xl p-4 border border-primary/20">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-bold text-primary flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs">2</span>
+                      المنتجات (الخيارات المتاحة)
+                    </h3>
                     <button
                       type="button"
                       onClick={addNewProductOption}
-                      className="text-sm text-primary hover:text-primary/80 flex items-center gap-1 font-medium"
+                      className="bg-primary text-primary-foreground text-sm px-3 py-1.5 rounded-lg flex items-center gap-1 font-medium hover:bg-primary/90 transition-colors"
                     >
                       <Plus className="w-4 h-4" /> إضافة منتج
                     </button>
                   </div>
+                  <p className="text-xs text-muted-foreground mb-4">
+                    مثال: لو القسم "حسابات جيميل" → المنتجات تكون: "شهر واحد"، "شهرين"، "3 شهور"
+                  </p>
                   
                   {newProductOptions.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-4 bg-muted/30 rounded-lg">
-                      اضغط على "إضافة منتج" لإضافة منتجات لهذا القسم
-                    </p>
+                    <div className="text-center py-8 bg-background/50 rounded-lg border-2 border-dashed border-border">
+                      <LayoutGrid className="w-10 h-10 text-muted-foreground/40 mx-auto mb-2" />
+                      <p className="text-sm text-muted-foreground">لا توجد منتجات</p>
+                      <p className="text-xs text-muted-foreground mt-1">اضغط على "إضافة منتج" لإضافة خيارات للقسم</p>
+                    </div>
                   ) : (
                     <div className="space-y-3">
                       {newProductOptions.map((opt, index) => (
-                        <div key={index} className="bg-muted/30 p-3 rounded-lg space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-medium text-muted-foreground">المنتج #{index + 1}</span>
+                        <div key={index} className="bg-background rounded-lg p-4 border border-border shadow-sm">
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-sm font-bold text-foreground flex items-center gap-2">
+                              <span className="w-5 h-5 rounded bg-primary/10 text-primary flex items-center justify-center text-xs">{index + 1}</span>
+                              المنتج #{index + 1}
+                            </span>
                             <button
                               type="button"
                               onClick={() => removeNewProductOption(index)}
-                              className="p-1 text-destructive hover:bg-destructive/10 rounded"
+                              className="p-1.5 text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
                             >
-                              <X className="w-4 h-4" />
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
-                          <div className="grid grid-cols-2 gap-2">
+                          <div className="grid grid-cols-2 gap-3 mb-3">
+                            <div>
+                              <label className="text-xs text-muted-foreground mb-1 block">اسم المنتج *</label>
+                              <input
+                                type="text"
+                                placeholder="مثال: شهر واحد"
+                                value={opt.name}
+                                onChange={(e) => updateNewProductOption(index, 'name', e.target.value)}
+                                className="input-field text-sm w-full"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs text-muted-foreground mb-1 block">السعر ($)</label>
+                              <input
+                                type="number"
+                                placeholder="0"
+                                value={opt.price || ''}
+                                onChange={(e) => updateNewProductOption(index, 'price', parseFloat(e.target.value) || 0)}
+                                className="input-field text-sm w-full"
+                              />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3 mb-3">
+                            <div>
+                              <label className="text-xs text-muted-foreground mb-1 block">نوع البيانات المطلوبة</label>
+                              <select
+                                value={opt.input_type}
+                                onChange={(e) => updateNewProductOption(index, 'input_type', e.target.value)}
+                                className="input-field text-sm w-full"
+                              >
+                                <option value="email_password">إيميل وباسورد</option>
+                                <option value="link">رابط فقط</option>
+                                <option value="text">نص</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="text-xs text-muted-foreground mb-1 block">الوقت المتوقع</label>
+                              <input
+                                type="text"
+                                placeholder="مثال: 24 ساعة"
+                                value={opt.estimated_time}
+                                onChange={(e) => updateNewProductOption(index, 'estimated_time', e.target.value)}
+                                className="input-field text-sm w-full"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground mb-1 block">وصف (اختياري)</label>
                             <input
                               type="text"
-                              placeholder="اسم المنتج"
-                              value={opt.name}
-                              onChange={(e) => updateNewProductOption(index, 'name', e.target.value)}
-                              className="input-field text-sm"
-                            />
-                            <input
-                              type="number"
-                              placeholder="السعر ($)"
-                              value={opt.price || ''}
-                              onChange={(e) => updateNewProductOption(index, 'price', parseFloat(e.target.value) || 0)}
-                              className="input-field text-sm"
+                              placeholder="وصف مختصر للمنتج..."
+                              value={opt.description}
+                              onChange={(e) => updateNewProductOption(index, 'description', e.target.value)}
+                              className="input-field w-full text-sm"
                             />
                           </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            <select
-                              value={opt.input_type}
-                              onChange={(e) => updateNewProductOption(index, 'input_type', e.target.value)}
-                              className="input-field text-sm"
-                            >
-                              <option value="email_password">إيميل وباسورد</option>
-                              <option value="link">رابط فقط</option>
-                              <option value="text">نص</option>
-                            </select>
-                            <input
-                              type="text"
-                              placeholder="الوقت المتوقع"
-                              value={opt.estimated_time}
-                              onChange={(e) => updateNewProductOption(index, 'estimated_time', e.target.value)}
-                              className="input-field text-sm"
-                            />
-                          </div>
-                          <input
-                            type="text"
-                            placeholder="وصف المنتج (اختياري)"
-                            value={opt.description}
-                            onChange={(e) => updateNewProductOption(index, 'description', e.target.value)}
-                            className="input-field w-full text-sm"
-                          />
                         </div>
                       ))}
                     </div>
                   )}
                 </div>
               )}
+
+              {/* Note about stock */}
+              {productForm.instant_delivery && !editingProduct && (
+                <div className="bg-warning/10 rounded-xl p-4 border border-warning/30">
+                  <div className="flex items-start gap-3">
+                    <Database className="w-5 h-5 text-warning mt-0.5" />
+                    <div>
+                      <p className="font-medium text-warning">ملاحظة عن المخزون</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        بعد إنشاء القسم والمنتجات، يمكنك إضافة المخزون لكل منتج على حدة من خلال زر إدارة المخزون بجانب كل منتج.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-            <div className="p-6 border-t border-border flex gap-3">
-              <button onClick={handleSaveProduct} className="btn-primary flex-1 py-3 flex items-center justify-center gap-2">
-                <Save className="w-4 h-4" />
-                {editingProduct ? 'حفظ التغييرات' : 'إضافة القسم'}
+            
+            {/* Footer */}
+            <div className="p-6 border-t border-border bg-muted/20 flex gap-3">
+              <button onClick={handleSaveProduct} className="btn-primary flex-1 py-3 flex items-center justify-center gap-2 text-base">
+                <Save className="w-5 h-5" />
+                {editingProduct ? 'حفظ التغييرات' : 'إنشاء القسم'}
               </button>
-              <button onClick={() => setShowProductModal(false)} className="px-6 py-3 border border-border rounded-lg hover:bg-muted transition-colors">
+              <button onClick={() => setShowProductModal(false)} className="px-8 py-3 border border-border rounded-lg hover:bg-muted transition-colors font-medium">
                 إلغاء
               </button>
             </div>
