@@ -427,10 +427,20 @@ const Index = () => {
               <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
                 <Loader2 className="w-8 h-8 text-primary animate-spin" />
               </div>
-              <h3 className="text-lg font-bold">جاري معالجة طلبك...</h3>
+              <h3 className="text-lg font-bold">
+                {orderStatus === 'in_progress' ? 'تم استلام طلبك وقيد التنفيذ' : 'جاري معالجة طلبك...'}
+              </h3>
               <p className="text-sm text-muted-foreground">
-                يرجى الانتظار، سيتم تفعيل الخدمة خلال {selectedOption?.estimated_time}
+                {orderStatus === 'in_progress' 
+                  ? 'يرجى الانتظار، جاري العمل على طلبك'
+                  : `يرجى الانتظار، سيتم تفعيل الخدمة خلال ${selectedOption?.estimated_time}`
+                }
               </p>
+              {responseMessage && (
+                <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
+                  <p className="text-sm text-blue-800">{responseMessage}</p>
+                </div>
+              )}
               <div className="p-3 rounded-lg bg-muted">
                 <p className="text-sm">الرصيد المتبقي: <span className="font-bold">${tokenBalance}</span></p>
               </div>
