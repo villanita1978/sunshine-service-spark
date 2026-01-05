@@ -312,7 +312,7 @@ const ProductCard = ({
                       <p className="font-medium truncate">{option.name}</p>
                       <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-muted-foreground">
                         <span className="bg-secondary px-2 py-0.5 rounded">
-                          {option.type === 'email_password' ? 'إيميل وباسورد' : option.type === 'link' ? 'رابط فقط' : option.type === 'text' ? 'نص' : 'إيميل وباسورد'}
+                          {option.type === 'none' ? 'استلام فوري' : option.type === 'email_password' ? 'إيميل وباسورد' : option.type === 'link' ? 'رابط فقط' : option.type === 'text' ? 'نص' : 'استلام فوري'}
                         </span>
                         {option.price > 0 && (
                           <span className="text-primary font-medium">${option.price}</span>
@@ -473,7 +473,7 @@ const Admin = () => {
   };
 
   const addNewProductOption = () => {
-    setNewProductOptions([...newProductOptions, { name: '', price: 0, description: '', estimated_time: '', input_type: 'email_password' }]);
+    setNewProductOptions([...newProductOptions, { name: '', price: 0, description: '', estimated_time: '', input_type: 'none' }]);
   };
 
   const updateNewProductOption = (index: number, field: string, value: string | number) => {
@@ -597,7 +597,7 @@ const Admin = () => {
       });
     } else {
       setEditingOption(null);
-      setOptionForm({ name: '', type: 'email_password', description: '', estimated_time: '', price: 0 });
+      setOptionForm({ name: '', type: 'none', description: '', estimated_time: '', price: 0 });
     }
     setShowOptionModal(true);
   };
@@ -1151,6 +1151,7 @@ const Admin = () => {
                                 onChange={(e) => updateNewProductOption(index, 'input_type', e.target.value)}
                                 className="input-field text-sm w-full"
                               >
+                                <option value="none">بدون بيانات (استلام فوري)</option>
                                 <option value="email_password">إيميل وباسورد</option>
                                 <option value="link">رابط فقط</option>
                                 <option value="text">نص</option>
@@ -1239,6 +1240,7 @@ const Admin = () => {
                   onChange={(e) => setOptionForm({ ...optionForm, type: e.target.value })}
                   className="input-field w-full"
                 >
+                  <option value="none">بدون بيانات (استلام فوري)</option>
                   <option value="email_password">إيميل وباسورد</option>
                   <option value="link">رابط فقط</option>
                   <option value="text">نص</option>

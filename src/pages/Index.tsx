@@ -415,6 +415,15 @@ const Index = () => {
                 </div>
               </div>
 
+              {/* Show message for instant delivery (no data required) */}
+              {(selectedOption.type === 'none' || !selectedOption.type) && (
+                <div className="p-4 rounded-lg bg-green-50 border border-green-200 text-center">
+                  <CheckCircle className="w-8 h-8 text-green-600 mx-auto mb-2" />
+                  <p className="text-sm font-medium text-green-800">استلام فوري</p>
+                  <p className="text-xs text-green-600 mt-1">سيتم إرسال المنتج فوراً بعد تأكيد الطلب</p>
+                </div>
+              )}
+
               {selectedOption.type === 'link' && (
                 <div>
                   <label className="block text-sm font-medium mb-2">الرابط</label>
