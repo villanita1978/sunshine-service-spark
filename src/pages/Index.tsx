@@ -63,6 +63,7 @@ const Index = () => {
   const [orderStatus, setOrderStatus] = useState<string>('pending');
   const [responseMessage, setResponseMessage] = useState<string | null>(null);
   const [tokenOrders, setTokenOrders] = useState<Order[]>([]);
+  const [optionStockCounts, setOptionStockCounts] = useState<Record<string, number>>({});
   const { toast } = useToast();
 
   const product = products.find(p => p.id === selectedProductId);
@@ -76,8 +77,24 @@ const Index = () => {
   const fetchProducts = async () => {
     const { data: productsData } = await supabase.from('products').select('*').order('name');
     const { data: optionsData } = await supabase.from('product_options').select('*');
+    
+    // Fetch stock counts for auto-delivery options
+    const { data: stockData } = await supabase
+      .from('stock_items')
+      .select('option_id')
+      .eq('is_sold', false);
+    
+    // Count stock per option
+    const counts: Record<string, number> = {};
+    stockData?.forEach(item => {
+      if (item.option_id) {
+        counts[item.option_id] = (counts[item.option_id] || 0) + 1;
+      }
+    });
+    
     setProducts(productsData || []);
     setProductOptions(optionsData || []);
+    setOptionStockCounts(counts);
   };
 
   const verifyToken = async (tokenValue: string) => {
@@ -396,11 +413,15 @@ const Index = () => {
                       <SelectValue placeholder="اختر نوع الخدمة..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {options.map((opt) => (
-                        <SelectItem key={opt.id} value={opt.id}>
-                          {opt.name}
-                        </SelectItem>
-                      ))}
+                    {options.map((opt) => {
+                        const stockCount = optionStockCounts[opt.id] || 0;
+                        const isAutoDelivery = opt.type === 'none' || !opt.type;
+                        return (
+                          <SelectItem key={opt.id} value={opt.id} disabled={isAutoDelivery && stockCount === 0}>
+                            {opt.name} {isAutoDelivery && `(متوفر: ${stockCount})`}
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
 
@@ -409,9 +430,16 @@ const Index = () => {
                       <p className="text-xs text-muted-foreground">
                         {selectedOption.description}
                       </p>
-                      <p className="text-sm font-semibold text-primary mt-1">
-                        السعر: ${selectedOption.price}
-                      </p>
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-sm font-semibold text-primary">
+                          السعر: ${selectedOption.price}
+                        </span>
+                        {(selectedOption.type === 'none' || !selectedOption.type) && (
+                          <span className="text-xs bg-success/10 text-success px-2 py-0.5 rounded-full">
+                            متوفر: {optionStockCounts[selectedOption.id] || 0}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
