@@ -365,7 +365,7 @@ const Admin = () => {
 
   // Form states
   const [productForm, setProductForm] = useState({ name: '', price: 0, duration: '', available: 0, instant_delivery: false });
-  const [optionForm, setOptionForm] = useState({ name: '', type: 'full_activation', description: '', estimated_time: '' });
+  const [optionForm, setOptionForm] = useState({ name: '', type: 'email_password', description: '', estimated_time: '', price: 0 });
   const [tokenForm, setTokenForm] = useState({ token: '', balance: 0 });
   
   // New options to add with product
@@ -570,13 +570,14 @@ const Admin = () => {
       setEditingOption(option);
       setOptionForm({
         name: option.name,
-        type: option.type || 'full_activation',
+        type: option.type || 'email_password',
         description: option.description || '',
-        estimated_time: option.estimated_time || ''
+        estimated_time: option.estimated_time || '',
+        price: option.price || 0
       });
     } else {
       setEditingOption(null);
-      setOptionForm({ name: '', type: 'full_activation', description: '', estimated_time: '' });
+      setOptionForm({ name: '', type: 'email_password', description: '', estimated_time: '', price: 0 });
     }
     setShowOptionModal(true);
   };
@@ -594,7 +595,8 @@ const Admin = () => {
           name: optionForm.name,
           type: optionForm.type,
           description: optionForm.description || null,
-          estimated_time: optionForm.estimated_time || null
+          estimated_time: optionForm.estimated_time || null,
+          price: optionForm.price || 0
         })
         .eq('id', editingOption.id);
 
@@ -610,7 +612,7 @@ const Admin = () => {
         type: optionForm.type,
         description: optionForm.description || null,
         estimated_time: optionForm.estimated_time || null,
-        price: 0
+        price: optionForm.price || 0
       });
 
       if (error) {
@@ -1110,6 +1112,7 @@ const Admin = () => {
                             >
                               <option value="email_password">إيميل وباسورد</option>
                               <option value="link">رابط فقط</option>
+                              <option value="text">نص</option>
                             </select>
                             <input
                               type="text"
@@ -1165,15 +1168,26 @@ const Admin = () => {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-muted-foreground mb-2 block">نوع الخيار</label>
+                <label className="text-sm font-medium text-muted-foreground mb-2 block">نوع المدخلات المطلوبة</label>
                 <select
                   value={optionForm.type}
                   onChange={(e) => setOptionForm({ ...optionForm, type: e.target.value })}
                   className="input-field w-full"
                 >
-                  <option value="full_activation">تفعيل كامل</option>
-                  <option value="student_verification">تخطي تحقق الطالب</option>
+                  <option value="email_password">إيميل وباسورد</option>
+                  <option value="link">رابط فقط</option>
+                  <option value="text">نص</option>
                 </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground mb-2 block">السعر ($)</label>
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={optionForm.price}
+                  onChange={(e) => setOptionForm({ ...optionForm, price: parseFloat(e.target.value) || 0 })}
+                  className="input-field w-full"
+                />
               </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground mb-2 block">الوقت المتوقع</label>

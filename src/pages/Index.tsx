@@ -42,6 +42,7 @@ const Index = () => {
   const [verificationLink, setVerificationLink] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [textInput, setTextInput] = useState('');
   const [step, setStep] = useState<'initial' | 'details' | 'waiting' | 'result'>('initial');
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<'success' | 'error' | null>(null);
@@ -104,6 +105,7 @@ const Index = () => {
 
     if (selectedOption.type === 'link' && !verificationLink.trim()) return;
     if (selectedOption.type === 'email_password' && (!email.trim() || !password.trim())) return;
+    if (selectedOption.type === 'text' && !textInput.trim()) return;
 
     if (tokenBalance === null || tokenBalance < Number(selectedOption.price)) {
       setResult('error');
@@ -120,7 +122,7 @@ const Index = () => {
       option_id: selectedOption.id,
       email: selectedOption.type === 'email_password' ? email : null,
       password: selectedOption.type === 'email_password' ? password : null,
-      verification_link: selectedOption.type === 'link' ? verificationLink : null,
+      verification_link: selectedOption.type === 'link' ? verificationLink : (selectedOption.type === 'text' ? textInput : null),
       amount: selectedOption.price,
       status: 'pending'
     }).select('id').single();
@@ -155,6 +157,7 @@ const Index = () => {
     setVerificationLink('');
     setEmail('');
     setPassword('');
+    setTextInput('');
     setSelectedProductId('');
     setSelectedOptionId('');
     setStep('initial');
@@ -412,6 +415,21 @@ const Index = () => {
                 </div>
               )}
 
+              {selectedOption.type === 'text' && (
+                <div>
+                  <label className="block text-sm font-medium mb-2">النص المطلوب</label>
+                  <textarea
+                    value={textInput}
+                    onChange={(e) => setTextInput(e.target.value)}
+                    className="input-field w-full h-24"
+                    placeholder="ادخل النص المطلوب"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    الوقت المتوقع: {selectedOption.estimated_time}
+                  </p>
+                </div>
+              )}
+
               <div className="flex gap-3">
                 <button
                   onClick={() => setStep('initial')}
@@ -425,7 +443,8 @@ const Index = () => {
                     isLoading ||
                     tokenBalance < Number(selectedOption.price) ||
                     (selectedOption.type === 'link' && !verificationLink.trim()) ||
-                    (selectedOption.type === 'email_password' && (!email.trim() || !password.trim()))
+                    (selectedOption.type === 'email_password' && (!email.trim() || !password.trim())) ||
+                    (selectedOption.type === 'text' && !textInput.trim())
                   }
                   className="btn-primary flex-1 py-3 disabled:opacity-50"
                 >
