@@ -126,7 +126,75 @@ const Index = () => {
 
     setIsLoading(true);
 
-    // Create order and get the ID
+    // Check if this is an auto-delivery product (type === 'none')
+    const isAutoDelivery = selectedOption.type === 'none' || !selectedOption.type;
+
+    // For auto-delivery, first check if stock is available
+    if (isAutoDelivery) {
+      const { data: stockItem, error: stockError } = await supabase
+        .from('stock_items')
+        .select('id, content')
+        .eq('option_id', selectedOption.id)
+        .eq('is_sold', false)
+        .limit(1)
+        .maybeSingle();
+
+      if (stockError || !stockItem) {
+        toast({
+          title: 'خطأ',
+          description: 'المنتج غير متوفر حالياً',
+          variant: 'destructive',
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Create order with completed status for auto-delivery
+      const { data: orderData, error: orderError } = await supabase.from('orders').insert({
+        token_id: tokenData.id,
+        product_id: product.id,
+        option_id: selectedOption.id,
+        amount: selectedOption.price,
+        status: 'completed',
+        response_message: stockItem.content
+      }).select('id').single();
+
+      if (orderError || !orderData) {
+        toast({
+          title: 'خطأ',
+          description: 'فشل في إرسال الطلب',
+          variant: 'destructive',
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Mark stock item as sold
+      await supabase
+        .from('stock_items')
+        .update({ 
+          is_sold: true, 
+          sold_at: new Date().toISOString(),
+          sold_to_order_id: orderData.id 
+        })
+        .eq('id', stockItem.id);
+
+      // Deduct balance
+      const newBalance = tokenBalance - Number(selectedOption.price);
+      await supabase
+        .from('tokens')
+        .update({ balance: newBalance })
+        .eq('id', tokenData.id);
+
+      setTokenBalance(newBalance);
+      setResponseMessage(stockItem.content);
+      setResult('success');
+      setIsLoading(false);
+      setStep('result');
+      return;
+    }
+
+    // For manual delivery products
     const { data: orderData, error: orderError } = await supabase.from('orders').insert({
       token_id: tokenData.id,
       product_id: product.id,
