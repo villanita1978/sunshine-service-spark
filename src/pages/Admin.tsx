@@ -9,6 +9,9 @@ interface Product {
   name: string;
   description: string | null;
   image: string | null;
+  price: number;
+  duration: string | null;
+  available: number | null;
 }
 
 interface ProductOption {
@@ -194,13 +197,14 @@ const Admin = () => {
       return;
     }
 
-    const { error } = await supabase.from('product_options').insert({
+    const { error } = await supabase.from('product_options').insert([{
       product_id: productId,
       name: newOption.name,
       type: newOption.type,
       description: newOption.description || null,
-      estimated_time: newOption.estimated_time || null
-    });
+      estimated_time: newOption.estimated_time || null,
+      price: 0
+    }]);
 
     if (error) {
       toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
