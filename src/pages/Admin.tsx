@@ -71,11 +71,15 @@ const statusOptions = [
 const OrderCard = ({ 
   order, 
   onUpdateStatus, 
-  onDelete 
+  onDelete,
+  products,
+  productOptions
 }: { 
   order: Order; 
   onUpdateStatus: (id: string, status: string, message?: string) => void;
   onDelete: (id: string) => void;
+  products: Product[];
+  productOptions: ProductOption[];
 }) => {
   const [message, setMessage] = useState(order.response_message || '');
   const [selectedStatus, setSelectedStatus] = useState(order.status);
@@ -93,6 +97,13 @@ const OrderCard = ({
 
   const getStatusInfo = (status: string) => {
     return statusOptions.find(s => s.value === status) || statusOptions[0];
+  };
+
+  const getProductName = () => {
+    const product = products.find(p => p.id === order.product_id);
+    const option = productOptions.find(o => o.id === order.option_id);
+    if (product && option) return `${product.name} - ${option.name}`;
+    return product?.name || option?.name || 'غير معروف';
   };
 
   const statusInfo = getStatusInfo(order.status);
@@ -117,6 +128,12 @@ const OrderCard = ({
       </div>
 
       <div className="p-4 space-y-4">
+        {/* Product Name */}
+        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+          <Package className="w-4 h-4 text-primary" />
+          <span>{getProductName()}</span>
+        </div>
+
         {/* Amount & Info */}
         <div className="flex flex-wrap items-center gap-3">
           <span className="text-xl font-bold text-primary">${order.amount}</span>
@@ -888,6 +905,8 @@ const Admin = () => {
                     order={order} 
                     onUpdateStatus={handleUpdateOrderStatus}
                     onDelete={handleDeleteOrder}
+                    products={products}
+                    productOptions={productOptions}
                   />
                 ))}
               </div>
