@@ -1,184 +1,431 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import Header from '@/components/Header';
 import { supabase } from '@/integrations/supabase/client';
-import { ShoppingBag, Sparkles, Shield, Clock, ArrowLeft } from 'lucide-react';
-import type { Product, ProductOption } from '@/types/services';
+import { ShoppingCart, Search, CheckCircle, AlertCircle } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
+
+interface Product {
+  id: string;
+  name: string;
+  description: string | null;
+  image: string | null;
+}
+
+interface ProductOption {
+  id: string;
+  product_id: string;
+  name: string;
+  price: number;
+  duration: string | null;
+  available: number | null;
+  type: string | null;
+  description: string | null;
+  estimated_time: string | null;
+}
 
 const Index = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [productOptions, setProductOptions] = useState<ProductOption[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [selectedProductId, setSelectedProductId] = useState('');
+  const [selectedOptionId, setSelectedOptionId] = useState('');
+  const [token, setToken] = useState('');
+  const [verificationLink, setVerificationLink] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [step, setStep] = useState<'initial' | 'details' | 'result'>('initial');
+  const [isLoading, setIsLoading] = useState(false);
+  const [result, setResult] = useState<'success' | 'error' | null>(null);
+  const [showBalance, setShowBalance] = useState(false);
+  const [tokenBalance, setTokenBalance] = useState<number | null>(null);
+  const [tokenData, setTokenData] = useState<{ id: string; balance: number } | null>(null);
+  const { toast } = useToast();
+
+  const product = products.find(p => p.id === selectedProductId);
+  const options = productOptions.filter(o => o.product_id === selectedProductId);
+  const selectedOption = productOptions.find(o => o.id === selectedOptionId);
 
   useEffect(() => {
     fetchProducts();
   }, []);
 
   const fetchProducts = async () => {
-    try {
-      const { data: productsData } = await supabase.from('products').select('*').order('name');
-      const { data: optionsData } = await supabase.from('product_options').select('*');
-      setProducts(productsData || []);
-      setProductOptions(optionsData || []);
-    } catch (error) {
-      console.error('Error fetching products:', error);
-    } finally {
-      setIsLoading(false);
+    const { data: productsData } = await supabase.from('products').select('*').order('name');
+    const { data: optionsData } = await supabase.from('product_options').select('*');
+    setProducts(productsData || []);
+    setProductOptions(optionsData || []);
+  };
+
+  const verifyToken = async (tokenValue: string) => {
+    const { data } = await supabase
+      .from('tokens')
+      .select('id, balance')
+      .eq('token', tokenValue)
+      .maybeSingle();
+
+    return data;
+  };
+
+  const handleBuySubmit = async () => {
+    if (!token.trim() || !product || !selectedOption) return;
+
+    setIsLoading(true);
+    const data = await verifyToken(token);
+    setIsLoading(false);
+
+    if (!data) {
+      toast({
+        title: 'خطأ',
+        description: 'التوكن غير صالح',
+        variant: 'destructive',
+      });
+      return;
     }
+
+    setTokenData(data);
+    setTokenBalance(Number(data.balance));
+    setStep('details');
   };
 
-  const getProductOptions = (productId: string) => {
-    return productOptions.filter(opt => opt.product_id === productId);
+  const handleOrderSubmit = async () => {
+    if (!selectedOption || !tokenData || !product) return;
+
+    if (selectedOption.type === 'student_verification' && !verificationLink.trim()) return;
+    if (selectedOption.type === 'full_activation' && (!email.trim() || !password.trim())) return;
+
+    if (tokenBalance === null || tokenBalance < Number(product.price)) {
+      setResult('error');
+      setStep('result');
+      return;
+    }
+
+    setIsLoading(true);
+
+    // Create order
+    const { error: orderError } = await supabase.from('orders').insert({
+      token_id: tokenData.id,
+      product_id: product.id,
+      option_id: selectedOption.id,
+      email: selectedOption.type === 'full_activation' ? email : null,
+      verification_link: selectedOption.type === 'student_verification' ? verificationLink : null,
+      amount: product.price,
+      status: 'pending'
+    });
+
+    if (orderError) {
+      toast({
+        title: 'خطأ',
+        description: 'فشل في إرسال الطلب',
+        variant: 'destructive',
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    // Deduct balance
+    const newBalance = tokenBalance - Number(product.price);
+    await supabase
+      .from('tokens')
+      .update({ balance: newBalance })
+      .eq('id', tokenData.id);
+
+    setTokenBalance(newBalance);
+    setIsLoading(false);
+    setResult('success');
+    setStep('result');
   };
 
-  const getLowestPrice = (productId: string) => {
-    const options = getProductOptions(productId);
-    if (options.length === 0) return null;
-    return Math.min(...options.map(opt => opt.price));
+  const handleReset = () => {
+    setToken('');
+    setVerificationLink('');
+    setEmail('');
+    setPassword('');
+    setSelectedProductId('');
+    setSelectedOptionId('');
+    setStep('initial');
+    setResult(null);
+    setTokenData(null);
+    setTokenBalance(null);
+  };
+
+  const handleProductChange = (value: string) => {
+    setSelectedProductId(value);
+    setSelectedOptionId('');
+  };
+
+  const handleShowBalance = async () => {
+    if (!token.trim()) return;
+
+    setIsLoading(true);
+    const data = await verifyToken(token);
+    setIsLoading(false);
+
+    if (data) {
+      setTokenData(data);
+      setTokenBalance(Number(data.balance));
+      setShowBalance(true);
+    } else {
+      toast({
+        title: 'خطأ',
+        description: 'التوكن غير صالح',
+        variant: 'destructive',
+      });
+      setShowBalance(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="glass-effect sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-primary-foreground" />
-              </div>
-              <h1 className="text-xl font-bold text-foreground">خدمات فيري</h1>
-            </div>
-            <Link 
-              to="/admin-auth" 
-              className="nav-btn bg-secondary text-secondary-foreground hover:bg-secondary/80"
-            >
-              لوحة التحكم
-            </Link>
-          </div>
-        </div>
-      </header>
+      <Header />
 
-      {/* Hero Section */}
-      <section className="relative py-16 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/10" />
-        <div className="container mx-auto px-4 relative">
-          <div className="text-center max-w-2xl mx-auto animate-fade-in">
-            <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-6">
-              اشتراكاتك المفضلة
-              <span className="block text-primary mt-2">بأسعار منافسة</span>
-            </h2>
-            <p className="text-lg text-muted-foreground mb-8">
-              احصل على أفضل الاشتراكات الرقمية بأسعار لا تُقاوم مع ضمان وخدمة متميزة
+      <main className="container mx-auto px-4 py-6">
+        {/* Main Content - Two Column Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Buy Here Card */}
+          <div className="card-simple p-6">
+            <div className="flex items-center gap-2 mb-2">
+              <ShoppingCart className="w-5 h-5 text-foreground" />
+              <h2 className="text-xl font-bold">اشتري من هنا</h2>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              اختر المنتج، ادخل التوكن
             </p>
-            <div className="flex flex-wrap justify-center gap-4">
-              <div className="flex items-center gap-2 px-4 py-2 bg-card rounded-full shadow-sm">
-                <Shield className="w-4 h-4 text-success" />
-                <span className="text-sm text-foreground">ضمان كامل</span>
-              </div>
-              <div className="flex items-center gap-2 px-4 py-2 bg-card rounded-full shadow-sm">
-                <Clock className="w-4 h-4 text-info" />
-                <span className="text-sm text-foreground">تفعيل فوري</span>
-              </div>
-              <div className="flex items-center gap-2 px-4 py-2 bg-card rounded-full shadow-sm">
-                <ShoppingBag className="w-4 h-4 text-warning" />
-                <span className="text-sm text-foreground">أسعار مميزة</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
 
-      {/* Products Section */}
-      <section className="py-12">
-        <div className="container mx-auto px-4">
-          <h3 className="text-2xl font-bold text-foreground mb-8">المنتجات المتاحة</h3>
-          
-          {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[1, 2, 3].map(i => (
-                <div key={i} className="bg-card rounded-xl p-6 animate-pulse">
-                  <div className="h-40 bg-muted rounded-lg mb-4" />
-                  <div className="h-6 bg-muted rounded w-3/4 mb-2" />
-                  <div className="h-4 bg-muted rounded w-1/2" />
+            {step === 'initial' && (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">اختر المنتج</label>
+                  <Select value={selectedProductId} onValueChange={handleProductChange}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="اختر منتج..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {products.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name} - ${p.price}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-              ))}
-            </div>
-          ) : products.length === 0 ? (
-            <div className="text-center py-16">
-              <ShoppingBag className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-              <h4 className="text-xl font-semibold text-foreground mb-2">لا توجد منتجات حالياً</h4>
-              <p className="text-muted-foreground">سيتم إضافة المنتجات قريباً</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {products.map((product, index) => {
-                const lowestPrice = getLowestPrice(product.id);
-                const options = getProductOptions(product.id);
-                
-                return (
-                  <div 
-                    key={product.id} 
-                    className="bg-card rounded-xl overflow-hidden shadow-sm card-hover animate-fade-in"
-                    style={{ animationDelay: `${index * 0.1}s` }}
-                  >
-                    {product.image ? (
-                      <div className="h-40 overflow-hidden">
-                        <img 
-                          src={product.image} 
-                          alt={product.name}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    ) : (
-                      <div className="h-40 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-                        <Sparkles className="w-12 h-12 text-primary/50" />
-                      </div>
+
+                {product && options.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium mb-2">اختر نوع الخدمة</label>
+                    <Select value={selectedOptionId} onValueChange={setSelectedOptionId}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="اختر نوع الخدمة..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {options.map((opt) => (
+                          <SelectItem key={opt.id} value={opt.id}>
+                            {opt.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    {selectedOption && (
+                      <p className="text-xs text-muted-foreground mt-2 p-2 bg-muted rounded-lg">
+                        {selectedOption.description}
+                      </p>
                     )}
-                    <div className="p-6">
-                      <h4 className="text-lg font-bold text-foreground mb-2">{product.name}</h4>
-                      {product.description && (
-                        <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                          {product.description}
-                        </p>
-                      )}
-                      <div className="flex items-center justify-between">
-                        <div>
-                          {lowestPrice !== null && (
-                            <span className="text-lg font-bold text-primary">
-                              يبدأ من {lowestPrice} ر.س
-                            </span>
-                          )}
-                          {options.length > 0 && (
-                            <span className="text-xs text-muted-foreground block">
-                              {options.length} خيار متاح
-                            </span>
-                          )}
-                        </div>
-                        <Link
-                          to={`/buy?product=${product.id}`}
-                          className="btn-primary px-4 py-2 flex items-center gap-2"
-                        >
-                          <span>شراء</span>
-                          <ArrowLeft className="w-4 h-4" />
-                        </Link>
-                      </div>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">التوكن</label>
+                  <input
+                    type="text"
+                    value={token}
+                    onChange={(e) => setToken(e.target.value)}
+                    className="input-field w-full"
+                    placeholder="ادخل التوكن الخاص بك"
+                  />
+                </div>
+
+                <button
+                  onClick={handleBuySubmit}
+                  disabled={!token.trim() || !selectedProductId || !selectedOptionId || isLoading}
+                  className="btn-primary w-full py-3 disabled:opacity-50"
+                >
+                  {isLoading ? 'جاري التحقق...' : 'متابعة'}
+                </button>
+              </div>
+            )}
+
+            {step === 'details' && product && selectedOption && tokenBalance !== null && (
+              <div className="space-y-4">
+                <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">رصيد التوكن:</span>
+                    <span className="font-bold text-primary">${tokenBalance}</span>
+                  </div>
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="text-sm text-muted-foreground">سعر الخدمة:</span>
+                    <span className="font-bold">${product.price}</span>
+                  </div>
+                  <div className="border-t border-border mt-2 pt-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">المتبقي بعد الخصم:</span>
+                      <span className={`font-bold ${tokenBalance >= Number(product.price) ? 'text-green-600' : 'text-red-600'}`}>
+                        ${tokenBalance - Number(product.price)}
+                      </span>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </section>
+                </div>
 
-      {/* Footer */}
-      <footer className="py-8 border-t border-border">
-        <div className="container mx-auto px-4 text-center">
-          <p className="text-muted-foreground text-sm">
-            © 2024 خدمات فيري - جميع الحقوق محفوظة
-          </p>
+                {selectedOption.type === 'student_verification' && (
+                  <div>
+                    <label className="block text-sm font-medium mb-2">رابط التحقق</label>
+                    <input
+                      type="text"
+                      value={verificationLink}
+                      onChange={(e) => setVerificationLink(e.target.value)}
+                      className="input-field w-full"
+                      placeholder="ادخل رابط التحقق الطلابي"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      الوقت المتوقع: {selectedOption.estimated_time}
+                    </p>
+                  </div>
+                )}
+
+                {selectedOption.type === 'full_activation' && (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">الإيميل</label>
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="input-field w-full"
+                        placeholder="ادخل إيميل الحساب"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2">الباسورد</label>
+                      <input
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="input-field w-full"
+                        placeholder="ادخل باسورد الحساب"
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      الوقت المتوقع: {selectedOption.estimated_time}
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setStep('initial')}
+                    className="flex-1 py-3 border border-border rounded-lg text-muted-foreground hover:bg-muted transition-colors"
+                  >
+                    رجوع
+                  </button>
+                  <button
+                    onClick={handleOrderSubmit}
+                    disabled={
+                      isLoading ||
+                      tokenBalance < Number(product.price) ||
+                      (selectedOption.type === 'student_verification' && !verificationLink.trim()) ||
+                      (selectedOption.type === 'full_activation' && (!email.trim() || !password.trim()))
+                    }
+                    className="btn-primary flex-1 py-3 disabled:opacity-50"
+                  >
+                    {isLoading ? 'جاري المعالجة...' : 'إرسال الطلب'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {step === 'result' && product && (
+              <div className="space-y-4 text-center py-4">
+                {result === 'success' ? (
+                  <>
+                    <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto">
+                      <CheckCircle className="w-8 h-8 text-green-600" />
+                    </div>
+                    <h3 className="text-lg font-bold text-green-600">تم إرسال الطلب بنجاح!</h3>
+                    <p className="text-sm text-muted-foreground">
+                      سيتم تفعيل الخدمة خلال {selectedOption?.estimated_time}
+                    </p>
+                    <div className="p-3 rounded-lg bg-muted">
+                      <p className="text-sm">الرصيد المتبقي: <span className="font-bold">${tokenBalance}</span></p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto">
+                      <AlertCircle className="w-8 h-8 text-red-600" />
+                    </div>
+                    <h3 className="text-lg font-bold text-red-600">فشل في إرسال الطلب</h3>
+                    <p className="text-sm text-muted-foreground">
+                      الرصيد غير كافي لإتمام العملية
+                    </p>
+                  </>
+                )}
+                <button
+                  onClick={handleReset}
+                  className="btn-primary w-full py-3 mt-4"
+                >
+                  طلب جديد
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Info Card */}
+          <div className="card-simple p-6">
+            <div className="flex items-center gap-2 mb-2">
+              <Search className="w-5 h-5 text-primary" />
+              <h2 className="text-xl font-bold text-primary">معلومات الرصيد</h2>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              البحث عن التفعيل - سجل المعاملات - الرصيد
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">التوكن</label>
+                <input
+                  type="text"
+                  value={token}
+                  onChange={(e) => { setToken(e.target.value); setShowBalance(false); }}
+                  className="input-field w-full"
+                  placeholder="ادخل التوكن الخاص بك"
+                />
+              </div>
+
+              <button
+                onClick={handleShowBalance}
+                disabled={!token.trim() || isLoading}
+                className="btn-primary w-full py-3 disabled:opacity-50"
+              >
+                {isLoading ? 'جاري التحقق...' : 'عرض السجل والرصيد'}
+              </button>
+
+              {showBalance && tokenBalance !== null && (
+                <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">الرصيد الحالي:</span>
+                    <span className="text-2xl font-bold text-primary">${tokenBalance}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-      </footer>
+      </main>
     </div>
   );
 };

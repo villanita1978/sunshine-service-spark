@@ -1,699 +1,776 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { 
-  Package, Key, ShoppingCart, Plus, Trash2, Edit2, LogOut, 
-  Loader2, Check, X, Sparkles, RefreshCw
-} from 'lucide-react';
+import { Package, Key, ShoppingBag, LogOut, Plus, Trash2, Edit2, Save, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import type { Product, ProductOption, Token, Order } from '@/types/services';
 
-type Tab = 'products' | 'tokens' | 'orders';
+interface Product {
+  id: string;
+  name: string;
+  description: string | null;
+  image: string | null;
+}
+
+interface ProductOption {
+  id: string;
+  product_id: string;
+  name: string;
+  price: number;
+  duration: string | null;
+  available: number | null;
+  type: string | null;
+  description: string | null;
+  estimated_time: string | null;
+}
+
+interface Token {
+  id: string;
+  token: string;
+  balance: number;
+}
+
+interface Order {
+  id: string;
+  token_id: string | null;
+  product_id: string | null;
+  option_id: string | null;
+  amount: number;
+  status: string;
+  created_at: string;
+  email: string | null;
+  verification_link: string | null;
+}
 
 const Admin = () => {
-  const [activeTab, setActiveTab] = useState<Tab>('products');
+  const [activeTab, setActiveTab] = useState<'products' | 'tokens' | 'orders'>('products');
   const [products, setProducts] = useState<Product[]>([]);
   const [productOptions, setProductOptions] = useState<ProductOption[]>([]);
   const [tokens, setTokens] = useState<Token[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [editingProduct, setEditingProduct] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<Partial<Product>>({});
+  const [expandedProduct, setExpandedProduct] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Form states
-  const [showProductForm, setShowProductForm] = useState(false);
-  const [showTokenForm, setShowTokenForm] = useState(false);
-  const [showOptionForm, setShowOptionForm] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [selectedProductForOption, setSelectedProductForOption] = useState<string>('');
+  // New product form
+  const [newProduct, setNewProduct] = useState({ name: '', price: 0, duration: '', available: 0 });
+  const [showNewProduct, setShowNewProduct] = useState(false);
 
-  // Product form
-  const [productName, setProductName] = useState('');
-  const [productDescription, setProductDescription] = useState('');
-  const [productImage, setProductImage] = useState('');
+  // New token form
+  const [newToken, setNewToken] = useState({ token: '', balance: 0 });
+  const [showNewToken, setShowNewToken] = useState(false);
 
-  // Option form
-  const [optionName, setOptionName] = useState('');
-  const [optionPrice, setOptionPrice] = useState('');
-  const [optionDuration, setOptionDuration] = useState('');
-  const [optionAvailable, setOptionAvailable] = useState('');
+  // Editing token
+  const [editingToken, setEditingToken] = useState<string | null>(null);
+  const [editTokenForm, setEditTokenForm] = useState<Partial<Token>>({});
 
-  // Token form
-  const [tokenValue, setTokenValue] = useState('');
-  const [tokenBalance, setTokenBalance] = useState('');
+  // New option form
+  const [newOption, setNewOption] = useState({ name: '', type: 'full_activation', description: '', estimated_time: '' });
+  const [showNewOption, setShowNewOption] = useState<string | null>(null);
+
+  // Editing option
+  const [editingOption, setEditingOption] = useState<string | null>(null);
+  const [editOptionForm, setEditOptionForm] = useState<Partial<ProductOption>>({});
 
   useEffect(() => {
     checkAuth();
-    fetchAllData();
   }, []);
+
+  useEffect(() => {
+    if (!isLoading) {
+      fetchData();
+    }
+  }, [activeTab, isLoading]);
 
   const checkAuth = async () => {
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      navigate('/admin-auth');
+
+    if (!session?.user) {
+      navigate('/admin/auth');
+      return;
     }
+
+    const { data: isAdmin, error } = await supabase.rpc('has_role', {
+      _user_id: session.user.id,
+      _role: 'admin',
+    });
+
+    if (error || !isAdmin) {
+      await supabase.auth.signOut();
+      navigate('/admin/auth');
+      return;
+    }
+
+    setIsLoading(false);
   };
 
-  const fetchAllData = async () => {
-    setIsLoading(true);
-    try {
-      const [productsRes, optionsRes, tokensRes, ordersRes] = await Promise.all([
-        supabase.from('products').select('*').order('created_at', { ascending: false }),
-        supabase.from('product_options').select('*'),
-        supabase.from('tokens').select('*').order('created_at', { ascending: false }),
-        supabase.from('orders').select('*').order('created_at', { ascending: false })
-      ]);
-
-      setProducts(productsRes.data || []);
-      setProductOptions(optionsRes.data || []);
-      setTokens(tokensRes.data || []);
-      setOrders(ordersRes.data || []);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    } finally {
-      setIsLoading(false);
+  const fetchData = async () => {
+    if (activeTab === 'products') {
+      const { data: productsData } = await supabase.from('products').select('*').order('created_at', { ascending: false });
+      const { data: optionsData } = await supabase.from('product_options').select('*');
+      setProducts(productsData || []);
+      setProductOptions(optionsData || []);
+    } else if (activeTab === 'tokens') {
+      const { data } = await supabase.from('tokens').select('*').order('created_at', { ascending: false });
+      setTokens(data || []);
+    } else if (activeTab === 'orders') {
+      const { data } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
+      setOrders(data || []);
     }
   };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    navigate('/admin-auth');
+    navigate('/admin/auth');
   };
 
+  // Products
   const handleAddProduct = async () => {
-    if (!productName.trim()) return;
-
-    try {
-      const { error } = await supabase.from('products').insert({
-        name: productName,
-        description: productDescription || null,
-        image: productImage || null
-      });
-
-      if (error) throw error;
-
-      toast({ title: "تم إضافة المنتج بنجاح" });
-      resetProductForm();
-      fetchAllData();
-    } catch (error: any) {
-      toast({ title: "خطأ", description: error.message, variant: "destructive" });
+    if (!newProduct.name || newProduct.price <= 0) {
+      toast({ title: 'خطأ', description: 'يرجى ملء جميع الحقول', variant: 'destructive' });
+      return;
     }
-  };
 
-  const handleUpdateProduct = async () => {
-    if (!editingProduct || !productName.trim()) return;
+    const { error } = await supabase.from('products').insert({
+      name: newProduct.name,
+      price: newProduct.price,
+      duration: newProduct.duration || null,
+      available: newProduct.available
+    });
 
-    try {
-      const { error } = await supabase.from('products')
-        .update({
-          name: productName,
-          description: productDescription || null,
-          image: productImage || null
-        })
-        .eq('id', editingProduct.id);
-
-      if (error) throw error;
-
-      toast({ title: "تم تحديث المنتج بنجاح" });
-      resetProductForm();
-      fetchAllData();
-    } catch (error: any) {
-      toast({ title: "خطأ", description: error.message, variant: "destructive" });
+    if (error) {
+      toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'تم', description: 'تم إضافة المنتج بنجاح' });
+      setNewProduct({ name: '', price: 0, duration: '', available: 0 });
+      setShowNewProduct(false);
+      fetchData();
     }
   };
 
   const handleDeleteProduct = async (id: string) => {
-    if (!confirm('هل أنت متأكد من حذف هذا المنتج؟')) return;
-
-    try {
-      const { error } = await supabase.from('products').delete().eq('id', id);
-      if (error) throw error;
-      toast({ title: "تم حذف المنتج" });
-      fetchAllData();
-    } catch (error: any) {
-      toast({ title: "خطأ", description: error.message, variant: "destructive" });
+    const { error } = await supabase.from('products').delete().eq('id', id);
+    if (error) {
+      toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'تم', description: 'تم حذف المنتج' });
+      fetchData();
     }
   };
 
-  const handleAddOption = async () => {
-    if (!selectedProductForOption || !optionName.trim() || !optionPrice) return;
+  const handleEditProduct = (product: Product) => {
+    setEditingProduct(product.id);
+    setEditForm(product);
+  };
 
-    try {
-      const { error } = await supabase.from('product_options').insert({
-        product_id: selectedProductForOption,
-        name: optionName,
-        price: parseFloat(optionPrice),
-        duration: optionDuration || null,
-        available: optionAvailable ? parseInt(optionAvailable) : 0
-      });
+  const handleSaveProduct = async () => {
+    if (!editingProduct) return;
 
-      if (error) throw error;
+    const { error } = await supabase
+      .from('products')
+      .update({
+        name: editForm.name,
+        price: editForm.price,
+        duration: editForm.duration,
+        available: editForm.available
+      })
+      .eq('id', editingProduct);
 
-      toast({ title: "تم إضافة الباقة بنجاح" });
-      resetOptionForm();
-      fetchAllData();
-    } catch (error: any) {
-      toast({ title: "خطأ", description: error.message, variant: "destructive" });
+    if (error) {
+      toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'تم', description: 'تم تحديث المنتج' });
+      setEditingProduct(null);
+      fetchData();
+    }
+  };
+
+  // Product Options
+  const handleAddOption = async (productId: string) => {
+    if (!newOption.name) {
+      toast({ title: 'خطأ', description: 'يرجى إدخال اسم الخيار', variant: 'destructive' });
+      return;
+    }
+
+    const { error } = await supabase.from('product_options').insert({
+      product_id: productId,
+      name: newOption.name,
+      type: newOption.type,
+      description: newOption.description || null,
+      estimated_time: newOption.estimated_time || null
+    });
+
+    if (error) {
+      toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'تم', description: 'تم إضافة الخيار بنجاح' });
+      setNewOption({ name: '', type: 'full_activation', description: '', estimated_time: '' });
+      setShowNewOption(null);
+      fetchData();
+    }
+  };
+
+  const handleEditOption = (option: ProductOption) => {
+    setEditingOption(option.id);
+    setEditOptionForm(option);
+  };
+
+  const handleSaveOption = async () => {
+    if (!editingOption) return;
+
+    const { error } = await supabase
+      .from('product_options')
+      .update({
+        name: editOptionForm.name,
+        type: editOptionForm.type,
+        description: editOptionForm.description,
+        estimated_time: editOptionForm.estimated_time
+      })
+      .eq('id', editingOption);
+
+    if (error) {
+      toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'تم', description: 'تم تحديث الخيار' });
+      setEditingOption(null);
+      fetchData();
     }
   };
 
   const handleDeleteOption = async (id: string) => {
-    if (!confirm('هل أنت متأكد من حذف هذه الباقة؟')) return;
-
-    try {
-      const { error } = await supabase.from('product_options').delete().eq('id', id);
-      if (error) throw error;
-      toast({ title: "تم حذف الباقة" });
-      fetchAllData();
-    } catch (error: any) {
-      toast({ title: "خطأ", description: error.message, variant: "destructive" });
+    const { error } = await supabase.from('product_options').delete().eq('id', id);
+    if (error) {
+      toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'تم', description: 'تم حذف الخيار' });
+      fetchData();
     }
   };
 
+  // Tokens
   const handleAddToken = async () => {
-    if (!tokenValue.trim() || !tokenBalance) return;
+    if (!newToken.token) {
+      toast({ title: 'خطأ', description: 'يرجى إدخال التوكن', variant: 'destructive' });
+      return;
+    }
 
-    try {
-      const { error } = await supabase.from('tokens').insert({
-        token: tokenValue,
-        balance: parseFloat(tokenBalance)
-      });
+    const { error } = await supabase.from('tokens').insert({
+      token: newToken.token,
+      balance: newToken.balance
+    });
 
-      if (error) throw error;
+    if (error) {
+      toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'تم', description: 'تم إضافة التوكن بنجاح' });
+      setNewToken({ token: '', balance: 0 });
+      setShowNewToken(false);
+      fetchData();
+    }
+  };
 
-      toast({ title: "تم إضافة التوكن بنجاح" });
-      resetTokenForm();
-      fetchAllData();
-    } catch (error: any) {
-      toast({ title: "خطأ", description: error.message, variant: "destructive" });
+  const handleEditToken = (token: Token) => {
+    setEditingToken(token.id);
+    setEditTokenForm(token);
+  };
+
+  const handleSaveToken = async () => {
+    if (!editingToken) return;
+
+    const { error } = await supabase
+      .from('tokens')
+      .update({
+        token: editTokenForm.token,
+        balance: editTokenForm.balance
+      })
+      .eq('id', editingToken);
+
+    if (error) {
+      toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'تم', description: 'تم تحديث التوكن' });
+      setEditingToken(null);
+      fetchData();
     }
   };
 
   const handleDeleteToken = async (id: string) => {
-    if (!confirm('هل أنت متأكد من حذف هذا التوكن؟')) return;
-
-    try {
-      const { error } = await supabase.from('tokens').delete().eq('id', id);
-      if (error) throw error;
-      toast({ title: "تم حذف التوكن" });
-      fetchAllData();
-    } catch (error: any) {
-      toast({ title: "خطأ", description: error.message, variant: "destructive" });
+    const { error } = await supabase.from('tokens').delete().eq('id', id);
+    if (error) {
+      toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'تم', description: 'تم حذف التوكن' });
+      fetchData();
     }
   };
 
+  // Orders
   const handleUpdateOrderStatus = async (id: string, status: string) => {
-    try {
-      const { error } = await supabase.from('orders')
-        .update({ status })
-        .eq('id', id);
-
-      if (error) throw error;
-      toast({ title: "تم تحديث حالة الطلب" });
-      fetchAllData();
-    } catch (error: any) {
-      toast({ title: "خطأ", description: error.message, variant: "destructive" });
+    const { error } = await supabase.from('orders').update({ status }).eq('id', id);
+    if (error) {
+      toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'تم', description: 'تم تحديث حالة الطلب' });
+      fetchData();
     }
   };
 
-  const resetProductForm = () => {
-    setShowProductForm(false);
-    setEditingProduct(null);
-    setProductName('');
-    setProductDescription('');
-    setProductImage('');
-  };
-
-  const resetOptionForm = () => {
-    setShowOptionForm(false);
-    setSelectedProductForOption('');
-    setOptionName('');
-    setOptionPrice('');
-    setOptionDuration('');
-    setOptionAvailable('');
-  };
-
-  const resetTokenForm = () => {
-    setShowTokenForm(false);
-    setTokenValue('');
-    setTokenBalance('');
-  };
-
-  const startEditProduct = (product: Product) => {
-    setEditingProduct(product);
-    setProductName(product.name);
-    setProductDescription(product.description || '');
-    setProductImage(product.image || '');
-    setShowProductForm(true);
-  };
-
-  const getProductName = (productId: string | null) => {
-    if (!productId) return '-';
-    const product = products.find(p => p.id === productId);
-    return product?.name || '-';
-  };
-
-  const getOptionName = (optionId: string | null) => {
-    if (!optionId) return '-';
-    const option = productOptions.find(o => o.id === optionId);
-    return option?.name || '-';
+  const handleDeleteOrder = async (id: string) => {
+    const { error } = await supabase.from('orders').delete().eq('id', id);
+    if (error) {
+      toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'تم', description: 'تم حذف الطلب' });
+      fetchData();
+    }
   };
 
   const getProductOptions = (productId: string) => {
     return productOptions.filter(opt => opt.product_id === productId);
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">جاري التحميل...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="glass-effect sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-primary-foreground" />
-              </div>
-              <h1 className="text-xl font-bold text-foreground">لوحة التحكم</h1>
-            </div>
-            <div className="flex items-center gap-2">
-              <button 
-                onClick={fetchAllData}
-                className="nav-btn bg-secondary text-secondary-foreground hover:bg-secondary/80"
-              >
-                <RefreshCw className="w-4 h-4" />
-              </button>
-              <button 
-                onClick={handleLogout}
-                className="nav-btn bg-destructive/10 text-destructive hover:bg-destructive/20 flex items-center gap-2"
-              >
-                <LogOut className="w-4 h-4" />
-                <span className="hidden sm:inline">خروج</span>
-              </button>
-            </div>
-          </div>
+      <header className="bg-card border-b border-border sticky top-0 z-10">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <h1 className="text-xl font-bold">لوحة التحكم</h1>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <LogOut className="w-5 h-5" />
+            <span>خروج</span>
+          </button>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-6">
+      <div className="container mx-auto px-4 py-6">
         {/* Tabs */}
         <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-          {[
-            { id: 'products' as Tab, label: 'المنتجات', icon: Package },
-            { id: 'tokens' as Tab, label: 'التوكنات', icon: Key },
-            { id: 'orders' as Tab, label: 'الطلبات', icon: ShoppingCart },
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`nav-btn flex items-center gap-2 whitespace-nowrap ${
-                activeTab === tab.id 
-                  ? 'bg-primary text-primary-foreground' 
-                  : 'bg-card text-foreground hover:bg-secondary'
-              }`}
-            >
-              <tab.icon className="w-4 h-4" />
-              <span>{tab.label}</span>
-            </button>
-          ))}
+          <button
+            onClick={() => setActiveTab('products')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${
+              activeTab === 'products' ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-muted/80'
+            }`}
+          >
+            <Package className="w-5 h-5" />
+            <span>المنتجات</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('tokens')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${
+              activeTab === 'tokens' ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-muted/80'
+            }`}
+          >
+            <Key className="w-5 h-5" />
+            <span>التوكنات</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('orders')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${
+              activeTab === 'orders' ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-muted/80'
+            }`}
+          >
+            <ShoppingBag className="w-5 h-5" />
+            <span>الطلبات</span>
+          </button>
         </div>
 
-        {isLoading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          </div>
-        ) : (
-          <>
-            {/* Products Tab */}
-            {activeTab === 'products' && (
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-lg font-bold text-foreground">المنتجات ({products.length})</h2>
-                  <button
-                    onClick={() => setShowProductForm(true)}
-                    className="btn-primary px-4 py-2 flex items-center gap-2"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>إضافة منتج</span>
-                  </button>
+        {/* Products Tab */}
+        {activeTab === 'products' && (
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-lg font-bold">المنتجات ({products.length})</h2>
+              <button
+                onClick={() => setShowNewProduct(!showNewProduct)}
+                className="btn-primary flex items-center gap-2 px-4 py-2"
+              >
+                <Plus className="w-5 h-5" />
+                <span>إضافة منتج</span>
+              </button>
+            </div>
+
+            {showNewProduct && (
+              <div className="card-simple p-4 space-y-3">
+                <input
+                  type="text"
+                  placeholder="اسم المنتج"
+                  value={newProduct.name}
+                  onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+                  className="input-field w-full"
+                />
+                <div className="grid grid-cols-3 gap-3">
+                  <input
+                    type="number"
+                    placeholder="السعر"
+                    value={newProduct.price}
+                    onChange={(e) => setNewProduct({ ...newProduct, price: parseFloat(e.target.value) || 0 })}
+                    className="input-field"
+                  />
+                  <input
+                    type="text"
+                    placeholder="المدة"
+                    value={newProduct.duration}
+                    onChange={(e) => setNewProduct({ ...newProduct, duration: e.target.value })}
+                    className="input-field"
+                  />
+                  <input
+                    type="number"
+                    placeholder="المتوفر"
+                    value={newProduct.available}
+                    onChange={(e) => setNewProduct({ ...newProduct, available: parseInt(e.target.value) || 0 })}
+                    className="input-field"
+                  />
                 </div>
+                <div className="flex gap-2">
+                  <button onClick={handleAddProduct} className="btn-primary px-4 py-2">حفظ</button>
+                  <button onClick={() => setShowNewProduct(false)} className="px-4 py-2 border border-border rounded-lg">إلغاء</button>
+                </div>
+              </div>
+            )}
 
-                {showProductForm && (
-                  <div className="bg-card rounded-xl p-4 shadow-sm animate-fade-in">
-                    <h3 className="font-bold text-foreground mb-4">
-                      {editingProduct ? 'تعديل المنتج' : 'إضافة منتج جديد'}
-                    </h3>
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <input
-                        type="text"
-                        value={productName}
-                        onChange={(e) => setProductName(e.target.value)}
-                        placeholder="اسم المنتج"
-                        className="input-field"
-                      />
-                      <input
-                        type="text"
-                        value={productImage}
-                        onChange={(e) => setProductImage(e.target.value)}
-                        placeholder="رابط الصورة (اختياري)"
-                        className="input-field"
-                        dir="ltr"
-                      />
-                      <textarea
-                        value={productDescription}
-                        onChange={(e) => setProductDescription(e.target.value)}
-                        placeholder="الوصف (اختياري)"
-                        className="input-field md:col-span-2"
-                        rows={2}
-                      />
-                    </div>
-                    <div className="flex gap-2 mt-4">
-                      <button
-                        onClick={editingProduct ? handleUpdateProduct : handleAddProduct}
-                        className="btn-primary px-4 py-2"
-                      >
-                        {editingProduct ? 'تحديث' : 'إضافة'}
-                      </button>
-                      <button onClick={resetProductForm} className="btn-secondary px-4 py-2">
-                        إلغاء
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {showOptionForm && (
-                  <div className="bg-card rounded-xl p-4 shadow-sm animate-fade-in">
-                    <h3 className="font-bold text-foreground mb-4">إضافة باقة جديدة</h3>
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <select
-                        value={selectedProductForOption}
-                        onChange={(e) => setSelectedProductForOption(e.target.value)}
-                        className="input-field"
-                      >
-                        <option value="">اختر المنتج</option>
-                        {products.map(p => (
-                          <option key={p.id} value={p.id}>{p.name}</option>
-                        ))}
-                      </select>
-                      <input
-                        type="text"
-                        value={optionName}
-                        onChange={(e) => setOptionName(e.target.value)}
-                        placeholder="اسم الباقة"
-                        className="input-field"
-                      />
-                      <input
-                        type="number"
-                        value={optionPrice}
-                        onChange={(e) => setOptionPrice(e.target.value)}
-                        placeholder="السعر"
-                        className="input-field"
-                        dir="ltr"
-                      />
-                      <input
-                        type="text"
-                        value={optionDuration}
-                        onChange={(e) => setOptionDuration(e.target.value)}
-                        placeholder="المدة (مثال: شهر، سنة)"
-                        className="input-field"
-                      />
-                      <input
-                        type="number"
-                        value={optionAvailable}
-                        onChange={(e) => setOptionAvailable(e.target.value)}
-                        placeholder="الكمية المتاحة"
-                        className="input-field"
-                        dir="ltr"
-                      />
-                    </div>
-                    <div className="flex gap-2 mt-4">
-                      <button onClick={handleAddOption} className="btn-primary px-4 py-2">
-                        إضافة
-                      </button>
-                      <button onClick={resetOptionForm} className="btn-secondary px-4 py-2">
-                        إلغاء
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                <div className="grid gap-4">
-                  {products.map(product => (
-                    <div key={product.id} className="bg-card rounded-xl p-4 shadow-sm">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                          {product.image ? (
-                            <img 
-                              src={product.image} 
-                              alt={product.name}
-                              className="w-12 h-12 rounded-lg object-cover"
-                            />
-                          ) : (
-                            <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                              <Package className="w-6 h-6 text-primary" />
-                            </div>
-                          )}
-                          <div>
-                            <h3 className="font-bold text-foreground">{product.name}</h3>
-                            {product.description && (
-                              <p className="text-sm text-muted-foreground line-clamp-1">
-                                {product.description}
-                              </p>
-                            )}
-                          </div>
+            <div className="space-y-3">
+              {products.map((product) => (
+                <div key={product.id} className="card-simple overflow-hidden">
+                  <div className="p-4">
+                    {editingProduct === product.id ? (
+                      <div className="space-y-3">
+                        <input
+                          type="text"
+                          value={editForm.name || ''}
+                          onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                          className="input-field w-full"
+                        />
+                        <div className="grid grid-cols-3 gap-3">
+                          <input
+                            type="number"
+                            value={editForm.price || 0}
+                            onChange={(e) => setEditForm({ ...editForm, price: parseFloat(e.target.value) || 0 })}
+                            className="input-field"
+                          />
+                          <input
+                            type="text"
+                            value={editForm.duration || ''}
+                            onChange={(e) => setEditForm({ ...editForm, duration: e.target.value })}
+                            className="input-field"
+                          />
+                          <input
+                            type="number"
+                            value={editForm.available || 0}
+                            onChange={(e) => setEditForm({ ...editForm, available: parseInt(e.target.value) || 0 })}
+                            className="input-field"
+                          />
                         </div>
-                        <div className="flex gap-1">
+                        <div className="flex gap-2">
+                          <button onClick={handleSaveProduct} className="btn-primary px-3 py-1 flex items-center gap-1">
+                            <Save className="w-4 h-4" /> حفظ
+                          </button>
+                          <button onClick={() => setEditingProduct(null)} className="px-3 py-1 border border-border rounded-lg flex items-center gap-1">
+                            <X className="w-4 h-4" /> إلغاء
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <h3 className="font-bold">{product.name}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            ${product.price} • {product.duration} • متوفر: {product.available}
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
                           <button
-                            onClick={() => startEditProduct(product)}
-                            className="p-2 text-muted-foreground hover:text-foreground"
+                            onClick={() => setExpandedProduct(expandedProduct === product.id ? null : product.id)}
+                            className="p-2 hover:bg-muted rounded-lg"
+                            title="خيارات المنتج"
                           >
+                            {expandedProduct === product.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                          </button>
+                          <button onClick={() => handleEditProduct(product)} className="p-2 hover:bg-muted rounded-lg">
                             <Edit2 className="w-4 h-4" />
                           </button>
-                          <button
-                            onClick={() => handleDeleteProduct(product.id)}
-                            className="p-2 text-muted-foreground hover:text-destructive"
-                          >
+                          <button onClick={() => handleDeleteProduct(product.id)} className="p-2 hover:bg-red-100 text-red-600 rounded-lg">
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </div>
+                    )}
+                  </div>
 
-                      {/* Product Options */}
-                      <div className="border-t border-border pt-3 mt-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium text-muted-foreground">الباقات</span>
-                          <button
-                            onClick={() => {
-                              setSelectedProductForOption(product.id);
-                              setShowOptionForm(true);
-                            }}
-                            className="text-xs text-primary hover:underline"
-                          >
-                            + إضافة باقة
-                          </button>
-                        </div>
-                        {getProductOptions(product.id).length === 0 ? (
-                          <p className="text-sm text-muted-foreground">لا توجد باقات</p>
-                        ) : (
-                          <div className="space-y-2">
-                            {getProductOptions(product.id).map(option => (
-                              <div 
-                                key={option.id}
-                                className="flex items-center justify-between p-2 bg-secondary/50 rounded-lg"
-                              >
-                                <div>
-                                  <span className="text-sm font-medium text-foreground">
-                                    {option.name}
-                                  </span>
-                                  {option.duration && (
-                                    <span className="text-xs text-muted-foreground mr-2">
-                                      ({option.duration})
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm font-bold text-primary">
-                                    {option.price} ر.س
-                                  </span>
-                                  <button
-                                    onClick={() => handleDeleteOption(option.id)}
-                                    className="p-1 text-muted-foreground hover:text-destructive"
-                                  >
-                                    <X className="w-3 h-3" />
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                  {/* Product Options */}
+                  {expandedProduct === product.id && (
+                    <div className="border-t border-border bg-muted/30 p-4 space-y-3">
+                      <div className="flex justify-between items-center">
+                        <h4 className="font-medium text-sm">خيارات المنتج</h4>
+                        <button
+                          onClick={() => setShowNewOption(showNewOption === product.id ? null : product.id)}
+                          className="text-primary text-sm flex items-center gap-1"
+                        >
+                          <Plus className="w-4 h-4" /> إضافة خيار
+                        </button>
                       </div>
+
+                      {showNewOption === product.id && (
+                        <div className="bg-background p-3 rounded-lg space-y-2">
+                          <input
+                            type="text"
+                            placeholder="اسم الخيار"
+                            value={newOption.name}
+                            onChange={(e) => setNewOption({ ...newOption, name: e.target.value })}
+                            className="input-field w-full text-sm"
+                          />
+                          <select
+                            value={newOption.type}
+                            onChange={(e) => setNewOption({ ...newOption, type: e.target.value })}
+                            className="input-field w-full text-sm"
+                          >
+                            <option value="full_activation">تفعيل كامل</option>
+                            <option value="student_verification">تخطي تحقق الطالب</option>
+                          </select>
+                          <input
+                            type="text"
+                            placeholder="الوصف"
+                            value={newOption.description}
+                            onChange={(e) => setNewOption({ ...newOption, description: e.target.value })}
+                            className="input-field w-full text-sm"
+                          />
+                          <input
+                            type="text"
+                            placeholder="الوقت المتوقع"
+                            value={newOption.estimated_time}
+                            onChange={(e) => setNewOption({ ...newOption, estimated_time: e.target.value })}
+                            className="input-field w-full text-sm"
+                          />
+                          <div className="flex gap-2">
+                            <button onClick={() => handleAddOption(product.id)} className="btn-primary px-3 py-1 text-sm">حفظ</button>
+                            <button onClick={() => setShowNewOption(null)} className="px-3 py-1 text-sm border border-border rounded-lg">إلغاء</button>
+                          </div>
+                        </div>
+                      )}
+
+                      {getProductOptions(product.id).length === 0 ? (
+                        <p className="text-sm text-muted-foreground">لا توجد خيارات</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {getProductOptions(product.id).map((option) => (
+                            <div key={option.id} className="bg-background p-3 rounded-lg">
+                              {editingOption === option.id ? (
+                                <div className="space-y-2">
+                                  <input
+                                    type="text"
+                                    value={editOptionForm.name || ''}
+                                    onChange={(e) => setEditOptionForm({ ...editOptionForm, name: e.target.value })}
+                                    className="input-field w-full text-sm"
+                                  />
+                                  <select
+                                    value={editOptionForm.type || ''}
+                                    onChange={(e) => setEditOptionForm({ ...editOptionForm, type: e.target.value })}
+                                    className="input-field w-full text-sm"
+                                  >
+                                    <option value="full_activation">تفعيل كامل</option>
+                                    <option value="student_verification">تخطي تحقق الطالب</option>
+                                  </select>
+                                  <input
+                                    type="text"
+                                    value={editOptionForm.description || ''}
+                                    onChange={(e) => setEditOptionForm({ ...editOptionForm, description: e.target.value })}
+                                    className="input-field w-full text-sm"
+                                    placeholder="الوصف"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={editOptionForm.estimated_time || ''}
+                                    onChange={(e) => setEditOptionForm({ ...editOptionForm, estimated_time: e.target.value })}
+                                    className="input-field w-full text-sm"
+                                    placeholder="الوقت المتوقع"
+                                  />
+                                  <div className="flex gap-2">
+                                    <button onClick={handleSaveOption} className="btn-primary px-2 py-1 text-xs flex items-center gap-1">
+                                      <Save className="w-3 h-3" /> حفظ
+                                    </button>
+                                    <button onClick={() => setEditingOption(null)} className="px-2 py-1 text-xs border border-border rounded-lg">إلغاء</button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <p className="font-medium text-sm">{option.name}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {option.type === 'full_activation' ? 'تفعيل كامل' : 'تخطي تحقق الطالب'}
+                                      {option.estimated_time && ` • ${option.estimated_time}`}
+                                    </p>
+                                    {option.description && <p className="text-xs text-muted-foreground mt-1">{option.description}</p>}
+                                  </div>
+                                  <div className="flex gap-1">
+                                    <button onClick={() => handleEditOption(option)} className="p-1.5 hover:bg-muted rounded">
+                                      <Edit2 className="w-3 h-3" />
+                                    </button>
+                                    <button onClick={() => handleDeleteOption(option.id)} className="p-1.5 hover:bg-red-100 text-red-600 rounded">
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  ))}
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Tokens Tab */}
+        {activeTab === 'tokens' && (
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-lg font-bold">التوكنات ({tokens.length})</h2>
+              <button
+                onClick={() => setShowNewToken(!showNewToken)}
+                className="btn-primary flex items-center gap-2 px-4 py-2"
+              >
+                <Plus className="w-5 h-5" />
+                <span>إضافة توكن</span>
+              </button>
+            </div>
+
+            {showNewToken && (
+              <div className="card-simple p-4 space-y-3">
+                <input
+                  type="text"
+                  placeholder="التوكن"
+                  value={newToken.token}
+                  onChange={(e) => setNewToken({ ...newToken, token: e.target.value })}
+                  className="input-field w-full"
+                />
+                <input
+                  type="number"
+                  placeholder="الرصيد"
+                  value={newToken.balance}
+                  onChange={(e) => setNewToken({ ...newToken, balance: parseFloat(e.target.value) || 0 })}
+                  className="input-field w-full"
+                />
+                <div className="flex gap-2">
+                  <button onClick={handleAddToken} className="btn-primary px-4 py-2">حفظ</button>
+                  <button onClick={() => setShowNewToken(false)} className="px-4 py-2 border border-border rounded-lg">إلغاء</button>
                 </div>
               </div>
             )}
 
-            {/* Tokens Tab */}
-            {activeTab === 'tokens' && (
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-lg font-bold text-foreground">التوكنات ({tokens.length})</h2>
-                  <button
-                    onClick={() => setShowTokenForm(true)}
-                    className="btn-primary px-4 py-2 flex items-center gap-2"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>إضافة توكن</span>
-                  </button>
-                </div>
-
-                {showTokenForm && (
-                  <div className="bg-card rounded-xl p-4 shadow-sm animate-fade-in">
-                    <h3 className="font-bold text-foreground mb-4">إضافة توكن جديد</h3>
-                    <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-3">
+              {tokens.map((token) => (
+                <div key={token.id} className="card-simple p-4">
+                  {editingToken === token.id ? (
+                    <div className="space-y-3">
                       <input
                         type="text"
-                        value={tokenValue}
-                        onChange={(e) => setTokenValue(e.target.value)}
-                        placeholder="قيمة التوكن"
-                        className="input-field"
-                        dir="ltr"
+                        value={editTokenForm.token || ''}
+                        onChange={(e) => setEditTokenForm({ ...editTokenForm, token: e.target.value })}
+                        className="input-field w-full font-mono"
                       />
                       <input
                         type="number"
-                        value={tokenBalance}
-                        onChange={(e) => setTokenBalance(e.target.value)}
-                        placeholder="الرصيد"
-                        className="input-field"
-                        dir="ltr"
+                        value={editTokenForm.balance || 0}
+                        onChange={(e) => setEditTokenForm({ ...editTokenForm, balance: parseFloat(e.target.value) || 0 })}
+                        className="input-field w-full"
                       />
+                      <div className="flex gap-2">
+                        <button onClick={handleSaveToken} className="btn-primary px-3 py-1 flex items-center gap-1">
+                          <Save className="w-4 h-4" /> حفظ
+                        </button>
+                        <button onClick={() => setEditingToken(null)} className="px-3 py-1 border border-border rounded-lg flex items-center gap-1">
+                          <X className="w-4 h-4" /> إلغاء
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex gap-2 mt-4">
-                      <button onClick={handleAddToken} className="btn-primary px-4 py-2">
-                        إضافة
-                      </button>
-                      <button onClick={resetTokenForm} className="btn-secondary px-4 py-2">
-                        إلغاء
-                      </button>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-mono font-bold">{token.token}</h3>
+                        <p className="text-sm text-muted-foreground">الرصيد: ${token.balance}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => handleEditToken(token)} className="p-2 hover:bg-muted rounded-lg">
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => handleDeleteToken(token.id)} className="p-2 hover:bg-red-100 text-red-600 rounded-lg">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                )}
-
-                <div className="bg-card rounded-xl overflow-hidden shadow-sm">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="bg-secondary/50">
-                        <tr>
-                          <th className="px-4 py-3 text-right text-sm font-medium text-foreground">التوكن</th>
-                          <th className="px-4 py-3 text-right text-sm font-medium text-foreground">الرصيد</th>
-                          <th className="px-4 py-3 text-right text-sm font-medium text-foreground">تاريخ الإنشاء</th>
-                          <th className="px-4 py-3 text-right text-sm font-medium text-foreground">إجراءات</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border">
-                        {tokens.map(token => (
-                          <tr key={token.id}>
-                            <td className="px-4 py-3 font-mono text-sm text-foreground" dir="ltr">
-                              {token.token}
-                            </td>
-                            <td className="px-4 py-3 text-sm font-bold text-primary">
-                              {token.balance} ر.س
-                            </td>
-                            <td className="px-4 py-3 text-sm text-muted-foreground">
-                              {new Date(token.created_at).toLocaleDateString('ar')}
-                            </td>
-                            <td className="px-4 py-3">
-                              <button
-                                onClick={() => handleDeleteToken(token.id)}
-                                className="p-2 text-muted-foreground hover:text-destructive"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  )}
                 </div>
-              </div>
-            )}
-
-            {/* Orders Tab */}
-            {activeTab === 'orders' && (
-              <div className="space-y-4">
-                <h2 className="text-lg font-bold text-foreground">الطلبات ({orders.length})</h2>
-
-                <div className="bg-card rounded-xl overflow-hidden shadow-sm">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="bg-secondary/50">
-                        <tr>
-                          <th className="px-4 py-3 text-right text-sm font-medium text-foreground">المنتج</th>
-                          <th className="px-4 py-3 text-right text-sm font-medium text-foreground">الباقة</th>
-                          <th className="px-4 py-3 text-right text-sm font-medium text-foreground">المبلغ</th>
-                          <th className="px-4 py-3 text-right text-sm font-medium text-foreground">الحالة</th>
-                          <th className="px-4 py-3 text-right text-sm font-medium text-foreground">التاريخ</th>
-                          <th className="px-4 py-3 text-right text-sm font-medium text-foreground">إجراءات</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border">
-                        {orders.map(order => (
-                          <tr key={order.id}>
-                            <td className="px-4 py-3 text-sm text-foreground">
-                              {getProductName(order.product_id)}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-foreground">
-                              {getOptionName(order.option_id)}
-                            </td>
-                            <td className="px-4 py-3 text-sm font-bold text-primary">
-                              {order.amount} ر.س
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                order.status === 'completed' ? 'status-success' :
-                                order.status === 'pending' ? 'status-pending' :
-                                'status-failed'
-                              }`}>
-                                {order.status === 'completed' ? 'مكتمل' :
-                                 order.status === 'pending' ? 'قيد الانتظار' : 'ملغي'}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-sm text-muted-foreground">
-                              {new Date(order.created_at).toLocaleDateString('ar')}
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="flex gap-1">
-                                {order.status === 'pending' && (
-                                  <>
-                                    <button
-                                      onClick={() => handleUpdateOrderStatus(order.id, 'completed')}
-                                      className="p-2 text-success hover:bg-success/10 rounded"
-                                      title="إكمال"
-                                    >
-                                      <Check className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                      onClick={() => handleUpdateOrderStatus(order.id, 'cancelled')}
-                                      className="p-2 text-destructive hover:bg-destructive/10 rounded"
-                                      title="إلغاء"
-                                    >
-                                      <X className="w-4 h-4" />
-                                    </button>
-                                  </>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            )}
-          </>
+              ))}
+            </div>
+          </div>
         )}
-      </main>
+
+        {/* Orders Tab */}
+        {activeTab === 'orders' && (
+          <div className="space-y-4">
+            <h2 className="text-lg font-bold">الطلبات ({orders.length})</h2>
+
+            <div className="space-y-3">
+              {orders.map((order) => (
+                <div key={order.id} className="card-simple p-4">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm text-muted-foreground">
+                          {new Date(order.created_at).toLocaleDateString('ar-EG')} - {new Date(order.created_at).toLocaleTimeString('ar-EG')}
+                        </span>
+                      </div>
+                      <p className="font-bold">${order.amount}</p>
+                      {order.email && <p className="text-sm text-muted-foreground">البريد: {order.email}</p>}
+                      {order.verification_link && (
+                        <a href={order.verification_link} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">
+                          رابط التحقق
+                        </a>
+                      )}
+                    </div>
+                    <button onClick={() => handleDeleteOrder(order.id)} className="p-2 hover:bg-red-100 text-red-600 rounded-lg">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">الحالة:</span>
+                    <select
+                      value={order.status}
+                      onChange={(e) => handleUpdateOrderStatus(order.id, e.target.value)}
+                      className="input-field text-sm flex-1"
+                    >
+                      <option value="pending">قيد الانتظار</option>
+                      <option value="processing">قيد المعالجة</option>
+                      <option value="completed">مكتمل</option>
+                      <option value="cancelled">ملغي</option>
+                    </select>
+                  </div>
+                </div>
+              ))}
+              {orders.length === 0 && (
+                <p className="text-center text-muted-foreground py-8">لا توجد طلبات</p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

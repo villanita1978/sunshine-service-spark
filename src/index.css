@@ -1,12 +1,14 @@
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap');
+
+/* Clean Light Theme - Similar to AccsHub */
+
 @layer base {
   :root {
-    --background: 220 20% 97%;
+    --background: 210 20% 96%;
     --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
@@ -24,8 +26,8 @@
     --muted: 210 20% 93%;
     --muted-foreground: 215 16% 47%;
 
-    --accent: 210 20% 93%;
-    --accent-foreground: 222 47% 11%;
+    --accent: 142 76% 36%;
+    --accent-foreground: 0 0% 100%;
 
     --success: 142 76% 36%;
     --success-foreground: 0 0% 100%;
@@ -43,7 +45,7 @@
     --input: 214 20% 88%;
     --ring: 246 80% 60%;
 
-    --radius: 0.75rem;
+    --radius: 0.5rem;
 
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 222 47% 11%;
@@ -60,19 +62,6 @@
     --foreground: 210 20% 98%;
     --card: 222 47% 15%;
     --card-foreground: 210 20% 98%;
-    --popover: 222 47% 15%;
-    --popover-foreground: 210 20% 98%;
-    --primary: 246 80% 65%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 20% 98%;
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 217 33% 17%;
-    --accent-foreground: 210 20% 98%;
-    --border: 217 33% 25%;
-    --input: 217 33% 25%;
-    --ring: 246 80% 65%;
   }
 }
 
@@ -91,20 +80,28 @@
 }
 
 @layer components {
+  .card-simple {
+    @apply bg-card rounded-lg border border-border shadow-sm;
+  }
+
   .btn-primary {
-    @apply bg-primary text-primary-foreground font-medium rounded-lg transition-all duration-200 hover:opacity-90;
+    @apply bg-primary text-primary-foreground font-medium rounded-lg transition-all duration-200;
+  }
+
+  .btn-primary:hover {
+    @apply opacity-90;
   }
 
   .btn-secondary {
-    @apply bg-secondary text-secondary-foreground font-medium rounded-lg transition-all duration-200 hover:bg-secondary/80;
+    @apply bg-secondary text-secondary-foreground font-medium rounded-lg transition-all duration-200;
   }
 
   .btn-success {
-    @apply bg-success text-success-foreground font-medium rounded-lg transition-all duration-200 hover:opacity-90;
+    @apply bg-success text-success-foreground font-medium rounded-lg transition-all duration-200;
   }
 
   .btn-info {
-    @apply bg-info text-info-foreground font-medium rounded-lg transition-all duration-200 hover:opacity-90;
+    @apply bg-info text-info-foreground font-medium rounded-lg transition-all duration-200;
   }
 
   .status-pending {
@@ -126,18 +123,6 @@
 
   .nav-btn {
     @apply px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200;
-  }
-
-  .card-hover {
-    @apply transition-all duration-300 hover:shadow-lg hover:-translate-y-1;
-  }
-
-  .gradient-primary {
-    @apply bg-gradient-to-r from-primary to-primary/80;
-  }
-
-  .glass-effect {
-    @apply backdrop-blur-sm bg-card/80 border border-border/50;
   }
 }
 
