@@ -119,6 +119,7 @@ const Index = () => {
       product_id: product.id,
       option_id: selectedOption.id,
       email: selectedOption.type === 'full_activation' ? email : null,
+      password: selectedOption.type === 'full_activation' ? password : null,
       verification_link: selectedOption.type === 'verification_bypass' ? verificationLink : null,
       amount: selectedOption.price,
       status: 'pending'

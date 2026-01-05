@@ -41,6 +41,7 @@ interface Order {
   status: string;
   created_at: string;
   email: string | null;
+  password: string | null;
   verification_link: string | null;
   response_message: string | null;
 }
@@ -93,6 +94,7 @@ const OrderCard = ({
       <div className="flex items-center gap-4 mb-3 text-sm">
         <span className="font-bold">${order.amount}</span>
         {order.email && <span className="text-muted-foreground">{order.email}</span>}
+        {order.password && <span className="text-muted-foreground">| {order.password}</span>}
         {order.verification_link && (
           <a href={order.verification_link} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
             رابط التحقق
