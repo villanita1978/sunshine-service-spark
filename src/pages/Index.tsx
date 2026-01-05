@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import { supabase } from '@/integrations/supabase/client';
-import { ShoppingCart, Search, CheckCircle, AlertCircle, Loader2, Clock, XCircle, CheckCircle2 } from 'lucide-react';
+import { ShoppingCart, Search, CheckCircle, AlertCircle, Loader2, Clock, XCircle, CheckCircle2, Copy } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -644,8 +644,25 @@ const Index = () => {
                   </div>
                   <h3 className="text-lg font-bold text-green-600">تم تفعيل الخدمة بنجاح!</h3>
                   {responseMessage && (
-                    <div className="p-3 rounded-lg bg-green-50 border border-green-200">
-                      <p className="text-sm text-green-800">{responseMessage}</p>
+                    <div className="text-right">
+                      <div className="flex items-center justify-between mb-2">
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(responseMessage);
+                            toast({ title: 'تم النسخ', description: 'تم نسخ المحتوى بنجاح' });
+                          }}
+                          className="p-2 hover:bg-muted rounded-lg transition-colors"
+                          title="نسخ"
+                        >
+                          <Copy className="w-4 h-4 text-muted-foreground" />
+                        </button>
+                        <span className="text-sm font-medium text-primary">محتوى الطلب</span>
+                      </div>
+                      <div className="p-4 rounded-lg bg-card border border-border max-h-48 overflow-y-auto">
+                        <pre className="text-sm text-foreground whitespace-pre-wrap text-right font-mono leading-relaxed">
+                          {responseMessage}
+                        </pre>
+                      </div>
                     </div>
                   )}
                   <div className="p-3 rounded-lg bg-muted">
