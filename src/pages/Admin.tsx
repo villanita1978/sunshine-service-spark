@@ -330,6 +330,9 @@ const Admin = () => {
   const [productForm, setProductForm] = useState({ name: '', price: 0, duration: '', available: 0 });
   const [optionForm, setOptionForm] = useState({ name: '', type: 'full_activation', description: '', estimated_time: '' });
   const [tokenForm, setTokenForm] = useState({ token: '', balance: 0 });
+  
+  // New options to add with product
+  const [newProductOptions, setNewProductOptions] = useState<Array<{ name: string; type: string; description: string; estimated_time: string }>>([]);
 
   useEffect(() => {
     checkAuth();
@@ -392,11 +395,27 @@ const Admin = () => {
         duration: product.duration || '',
         available: product.available || 0
       });
+      setNewProductOptions([]);
     } else {
       setEditingProduct(null);
       setProductForm({ name: '', price: 0, duration: '', available: 0 });
+      setNewProductOptions([]);
     }
     setShowProductModal(true);
+  };
+
+  const addNewProductOption = () => {
+    setNewProductOptions([...newProductOptions, { name: '', type: 'full_activation', description: '', estimated_time: '' }]);
+  };
+
+  const updateNewProductOption = (index: number, field: string, value: string) => {
+    const updated = [...newProductOptions];
+    updated[index] = { ...updated[index], [field]: value };
+    setNewProductOptions(updated);
+  };
+
+  const removeNewProductOption = (index: number) => {
+    setNewProductOptions(newProductOptions.filter((_, i) => i !== index));
   };
 
   const handleSaveProduct = async () => {
@@ -422,21 +441,49 @@ const Admin = () => {
         toast({ title: 'تم', description: 'تم تحديث المنتج بنجاح' });
       }
     } else {
-      const { error } = await supabase.from('products').insert({
-        name: productForm.name,
-        price: productForm.price,
-        duration: productForm.duration || null,
-        available: productForm.available
-      });
+      // Create product first
+      const { data: newProduct, error: productError } = await supabase
+        .from('products')
+        .insert({
+          name: productForm.name,
+          price: productForm.price,
+          duration: productForm.duration || null,
+          available: productForm.available
+        })
+        .select('id')
+        .single();
 
-      if (error) {
-        toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
-      } else {
-        toast({ title: 'تم', description: 'تم إضافة المنتج بنجاح' });
+      if (productError || !newProduct) {
+        toast({ title: 'خطأ', description: productError?.message || 'فشل في إضافة المنتج', variant: 'destructive' });
+        return;
       }
+
+      // Add options if any
+      if (newProductOptions.length > 0) {
+        const optionsToInsert = newProductOptions
+          .filter(opt => opt.name.trim())
+          .map(opt => ({
+            product_id: newProduct.id,
+            name: opt.name,
+            type: opt.type,
+            description: opt.description || null,
+            estimated_time: opt.estimated_time || null,
+            price: 0
+          }));
+
+        if (optionsToInsert.length > 0) {
+          const { error: optionsError } = await supabase.from('product_options').insert(optionsToInsert);
+          if (optionsError) {
+            toast({ title: 'تحذير', description: 'تم إضافة المنتج لكن فشل في إضافة بعض الخيارات', variant: 'destructive' });
+          }
+        }
+      }
+
+      toast({ title: 'تم', description: 'تم إضافة المنتج بنجاح' });
     }
 
     setShowProductModal(false);
+    setNewProductOptions([]);
     fetchData();
   };
 
@@ -796,17 +843,17 @@ const Admin = () => {
 
       {/* Product Modal */}
       {showProductModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card rounded-2xl w-full max-w-md shadow-2xl">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-card rounded-2xl w-full max-w-lg shadow-2xl my-8">
             <div className="p-6 border-b border-border">
               <h2 className="text-xl font-bold">{editingProduct ? 'تعديل المنتج' : 'إضافة منتج جديد'}</h2>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
               <div>
                 <label className="text-sm font-medium text-muted-foreground mb-2 block">اسم المنتج *</label>
                 <input
                   type="text"
-                  placeholder="مثال: Gemini"
+                  placeholder="مثال: Gemini - 12 شهر"
                   value={productForm.name}
                   onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
                   className="input-field w-full"
@@ -844,6 +891,79 @@ const Admin = () => {
                   className="input-field w-full"
                 />
               </div>
+
+              {/* Service Types / Options Section - Only for new products */}
+              {!editingProduct && (
+                <div className="border-t border-border pt-4 mt-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <label className="text-sm font-bold flex items-center gap-2">
+                      <LayoutGrid className="w-4 h-4" />
+                      أنواع الخدمة (اختياري)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={addNewProductOption}
+                      className="text-sm text-primary hover:text-primary/80 flex items-center gap-1 font-medium"
+                    >
+                      <Plus className="w-4 h-4" /> إضافة نوع
+                    </button>
+                  </div>
+                  
+                  {newProductOptions.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4 bg-muted/30 rounded-lg">
+                      اضغط على "إضافة نوع" لإضافة أنواع خدمة للمنتج
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {newProductOptions.map((opt, index) => (
+                        <div key={index} className="bg-muted/30 p-3 rounded-lg space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-medium text-muted-foreground">نوع الخدمة #{index + 1}</span>
+                            <button
+                              type="button"
+                              onClick={() => removeNewProductOption(index)}
+                              className="p-1 text-destructive hover:bg-destructive/10 rounded"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                          <input
+                            type="text"
+                            placeholder="اسم الخدمة (مثال: تفعيل كامل)"
+                            value={opt.name}
+                            onChange={(e) => updateNewProductOption(index, 'name', e.target.value)}
+                            className="input-field w-full text-sm"
+                          />
+                          <div className="grid grid-cols-2 gap-2">
+                            <select
+                              value={opt.type}
+                              onChange={(e) => updateNewProductOption(index, 'type', e.target.value)}
+                              className="input-field text-sm"
+                            >
+                              <option value="full_activation">تفعيل كامل</option>
+                              <option value="student_verification">تخطي تحقق الطالب</option>
+                            </select>
+                            <input
+                              type="text"
+                              placeholder="الوقت المتوقع"
+                              value={opt.estimated_time}
+                              onChange={(e) => updateNewProductOption(index, 'estimated_time', e.target.value)}
+                              className="input-field text-sm"
+                            />
+                          </div>
+                          <input
+                            type="text"
+                            placeholder="وصف الخدمة (اختياري)"
+                            value={opt.description}
+                            onChange={(e) => updateNewProductOption(index, 'description', e.target.value)}
+                            className="input-field w-full text-sm"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             <div className="p-6 border-t border-border flex gap-3">
               <button onClick={handleSaveProduct} className="btn-primary flex-1 py-3 flex items-center justify-center gap-2">
