@@ -589,7 +589,7 @@ const Admin = () => {
       const isAuto = option.type === 'none';
       setOptionForm({
         name: option.name,
-        type: option.type || 'email_password',
+        type: isAuto ? 'email_password' : (option.type || 'email_password'),
         description: option.description || '',
         estimated_time: option.estimated_time || '',
         price: option.price || 0,
