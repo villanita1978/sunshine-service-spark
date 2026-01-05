@@ -431,9 +431,16 @@ const Index = () => {
                         {selectedOption.description}
                       </p>
                       <div className="flex items-center justify-between mt-1">
-                        <span className="text-sm font-semibold text-primary">
-                          السعر: ${selectedOption.price}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-primary">
+                            السعر: ${selectedOption.price}
+                          </span>
+                          {selectedOption.duration && (
+                            <span className="text-xs bg-muted-foreground/10 text-muted-foreground px-2 py-0.5 rounded-full">
+                              {selectedOption.duration}
+                            </span>
+                          )}
+                        </div>
                         {(selectedOption.type === 'none' || !selectedOption.type) && (
                           <span className="text-xs bg-success/10 text-success px-2 py-0.5 rounded-full">
                             متوفر: {optionStockCounts[selectedOption.id] || 0}
