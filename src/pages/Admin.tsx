@@ -598,7 +598,7 @@ const Admin = () => {
       });
     } else {
       setEditingOption(null);
-      setOptionForm({ name: '', type: 'none', description: '', estimated_time: '', price: 0, duration: '', delivery_type: 'manual' });
+      setOptionForm({ name: '', type: 'email_password', description: '', estimated_time: '', price: 0, duration: '', delivery_type: 'manual' });
     }
     setShowOptionModal(true);
   };
