@@ -980,7 +980,7 @@ const Admin = () => {
                   className="input-field w-full"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className={`grid ${productForm.instant_delivery ? 'grid-cols-1' : 'grid-cols-2'} gap-4`}>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground mb-2 block">السعر ($)</label>
                   <input
@@ -991,16 +991,18 @@ const Admin = () => {
                     className="input-field w-full"
                   />
                 </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground mb-2 block">المتوفر</label>
-                  <input
-                    type="number"
-                    placeholder="0"
-                    value={productForm.available}
-                    onChange={(e) => setProductForm({ ...productForm, available: parseInt(e.target.value) || 0 })}
-                    className="input-field w-full"
-                  />
-                </div>
+                {!productForm.instant_delivery && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground mb-2 block">المتوفر</label>
+                    <input
+                      type="number"
+                      placeholder="0"
+                      value={productForm.available}
+                      onChange={(e) => setProductForm({ ...productForm, available: parseInt(e.target.value) || 0 })}
+                      className="input-field w-full"
+                    />
+                  </div>
+                )}
               </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground mb-2 block">المدة</label>
