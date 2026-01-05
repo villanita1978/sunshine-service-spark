@@ -64,6 +64,7 @@ const Index = () => {
   const [responseMessage, setResponseMessage] = useState<string | null>(null);
   const [tokenOrders, setTokenOrders] = useState<Order[]>([]);
   const [optionStockCounts, setOptionStockCounts] = useState<Record<string, number>>({});
+  const [quantity, setQuantity] = useState(1);
   const { toast } = useToast();
 
   const product = products.find(p => p.id === selectedProductId);
@@ -135,7 +136,10 @@ const Index = () => {
     if (selectedOption.type === 'email_password' && (!email.trim() || !password.trim())) return;
     if (selectedOption.type === 'text' && !textInput.trim()) return;
 
-    if (tokenBalance === null || tokenBalance < Number(selectedOption.price)) {
+    const isAutoDelivery = selectedOption.type === 'none' || !selectedOption.type;
+    const totalPrice = isAutoDelivery ? Number(selectedOption.price) * quantity : Number(selectedOption.price);
+
+    if (tokenBalance === null || tokenBalance < totalPrice) {
       setResult('error');
       setStep('result');
       return;
@@ -143,37 +147,37 @@ const Index = () => {
 
     setIsLoading(true);
 
-    // Check if this is an auto-delivery product (type === 'none')
-    const isAutoDelivery = selectedOption.type === 'none' || !selectedOption.type;
-
     // For auto-delivery, first check if stock is available
     if (isAutoDelivery) {
-      const { data: stockItem, error: stockError } = await supabase
+      // Fetch required quantity of stock items
+      const { data: stockItems, error: stockError } = await supabase
         .from('stock_items')
         .select('id, content')
         .eq('option_id', selectedOption.id)
         .eq('is_sold', false)
-        .limit(1)
-        .maybeSingle();
+        .limit(quantity);
 
-      if (stockError || !stockItem) {
+      if (stockError || !stockItems || stockItems.length < quantity) {
         toast({
           title: 'خطأ',
-          description: 'المنتج غير متوفر حالياً',
+          description: `المخزون غير كافي. متوفر فقط ${stockItems?.length || 0} قطعة`,
           variant: 'destructive',
         });
         setIsLoading(false);
         return;
       }
 
+      // Combine all stock content
+      const combinedContent = stockItems.map(item => item.content).join('\n');
+
       // Create order with completed status for auto-delivery
       const { data: orderData, error: orderError } = await supabase.from('orders').insert({
         token_id: tokenData.id,
         product_id: product.id,
         option_id: selectedOption.id,
-        amount: selectedOption.price,
+        amount: totalPrice,
         status: 'completed',
-        response_message: stockItem.content
+        response_message: combinedContent
       }).select('id').single();
 
       if (orderError || !orderData) {
@@ -186,7 +190,8 @@ const Index = () => {
         return;
       }
 
-      // Mark stock item as sold
+      // Mark all stock items as sold
+      const stockIds = stockItems.map(item => item.id);
       await supabase
         .from('stock_items')
         .update({ 
@@ -194,17 +199,23 @@ const Index = () => {
           sold_at: new Date().toISOString(),
           sold_to_order_id: orderData.id 
         })
-        .eq('id', stockItem.id);
+        .in('id', stockIds);
 
       // Deduct balance
-      const newBalance = tokenBalance - Number(selectedOption.price);
+      const newBalance = tokenBalance - totalPrice;
       await supabase
         .from('tokens')
         .update({ balance: newBalance })
         .eq('id', tokenData.id);
 
+      // Update local stock count
+      setOptionStockCounts(prev => ({
+        ...prev,
+        [selectedOption.id]: (prev[selectedOption.id] || 0) - quantity
+      }));
+
       setTokenBalance(newBalance);
-      setResponseMessage(stockItem.content);
+      setResponseMessage(combinedContent);
       setResult('success');
       setIsLoading(false);
       setStep('result');
@@ -256,6 +267,7 @@ const Index = () => {
     setTextInput('');
     setSelectedProductId('');
     setSelectedOptionId('');
+    setQuantity(1);
     setStep('initial');
     setResult(null);
     setTokenData(null);
@@ -314,6 +326,12 @@ const Index = () => {
   const handleProductChange = (value: string) => {
     setSelectedProductId(value);
     setSelectedOptionId('');
+    setQuantity(1);
+  };
+
+  const handleOptionChange = (value: string) => {
+    setSelectedOptionId(value);
+    setQuantity(1);
   };
 
   const handleShowBalance = async () => {
@@ -408,7 +426,7 @@ const Index = () => {
               {product && options.length > 0 && (
                 <div>
                   <label className="block text-sm font-medium mb-2">اختر نوع الخدمة</label>
-                  <Select value={selectedOptionId} onValueChange={setSelectedOptionId}>
+                  <Select value={selectedOptionId} onValueChange={handleOptionChange}>
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="اختر نوع الخدمة..." />
                     </SelectTrigger>
@@ -447,6 +465,44 @@ const Index = () => {
                           </span>
                         )}
                       </div>
+
+                      {/* Quantity selector for auto-delivery */}
+                      {(selectedOption.type === 'none' || !selectedOption.type) && (optionStockCounts[selectedOption.id] || 0) > 0 && (
+                        <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
+                          <span className="text-sm text-muted-foreground">الكمية:</span>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                              className="w-8 h-8 rounded-lg border border-border hover:bg-muted transition-colors flex items-center justify-center"
+                              disabled={quantity <= 1}
+                            >
+                              -
+                            </button>
+                            <span className="w-12 text-center font-semibold">{quantity}</span>
+                            <button
+                              type="button"
+                              onClick={() => setQuantity(q => Math.min(optionStockCounts[selectedOption.id] || 1, q + 1))}
+                              className="w-8 h-8 rounded-lg border border-border hover:bg-muted transition-colors flex items-center justify-center"
+                              disabled={quantity >= (optionStockCounts[selectedOption.id] || 1)}
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Total price for multiple items */}
+                      {(selectedOption.type === 'none' || !selectedOption.type) && quantity > 1 && (
+                        <div className="mt-2 pt-2 border-t border-border">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground">الإجمالي:</span>
+                            <span className="text-sm font-bold text-primary">
+                              ${Number(selectedOption.price) * quantity}
+                            </span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -497,7 +553,12 @@ const Index = () => {
             </div>
           )}
 
-          {step === 'details' && product && selectedOption && tokenBalance !== null && (
+          {step === 'details' && product && selectedOption && tokenBalance !== null && (() => {
+            const isAutoDelivery = selectedOption.type === 'none' || !selectedOption.type;
+            const totalPrice = isAutoDelivery ? Number(selectedOption.price) * quantity : Number(selectedOption.price);
+            const remainingBalance = tokenBalance - totalPrice;
+            
+            return (
             <div className="space-y-4">
               <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
                 <div className="flex items-center justify-between">
@@ -506,24 +567,35 @@ const Index = () => {
                 </div>
                 <div className="flex items-center justify-between mt-1">
                   <span className="text-sm text-muted-foreground">سعر الخدمة:</span>
-                  <span className="font-bold">${selectedOption.price}</span>
+                  <span className="font-bold">
+                    ${selectedOption.price}
+                    {isAutoDelivery && quantity > 1 && ` × ${quantity}`}
+                  </span>
                 </div>
+                {isAutoDelivery && quantity > 1 && (
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="text-sm text-muted-foreground">الإجمالي:</span>
+                    <span className="font-bold text-primary">${totalPrice}</span>
+                  </div>
+                )}
                 <div className="border-t border-border mt-2 pt-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">المتبقي بعد الخصم:</span>
-                    <span className={`font-bold ${tokenBalance >= Number(selectedOption.price) ? 'text-green-600' : 'text-red-600'}`}>
-                      ${tokenBalance - Number(selectedOption.price)}
+                    <span className={`font-bold ${remainingBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      ${remainingBalance}
                     </span>
                   </div>
                 </div>
               </div>
 
               {/* Show message for instant delivery (no data required) */}
-              {(selectedOption.type === 'none' || !selectedOption.type) && (
+              {isAutoDelivery && (
                 <div className="p-4 rounded-lg bg-green-50 border border-green-200 text-center">
                   <CheckCircle className="w-8 h-8 text-green-600 mx-auto mb-2" />
                   <p className="text-sm font-medium text-green-800">استلام فوري</p>
-                  <p className="text-xs text-green-600 mt-1">سيتم إرسال المنتج فوراً بعد تأكيد الطلب</p>
+                  <p className="text-xs text-green-600 mt-1">
+                    سيتم إرسال {quantity > 1 ? `${quantity} منتجات` : 'المنتج'} فوراً بعد تأكيد الطلب
+                  </p>
                 </div>
               )}
 
@@ -597,7 +669,7 @@ const Index = () => {
                   onClick={handleOrderSubmit}
                   disabled={
                     isLoading ||
-                    tokenBalance < Number(selectedOption.price) ||
+                    remainingBalance < 0 ||
                     (selectedOption.type === 'link' && !verificationLink.trim()) ||
                     (selectedOption.type === 'email_password' && (!email.trim() || !password.trim())) ||
                     (selectedOption.type === 'text' && !textInput.trim())
@@ -608,7 +680,8 @@ const Index = () => {
                 </button>
               </div>
             </div>
-          )}
+            );
+          })()}
 
           {step === 'waiting' && (
             <div className="space-y-4 text-center py-8">
