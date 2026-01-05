@@ -63,44 +63,46 @@ const OrderCard = ({
   };
 
   return (
-    <div className="card-simple p-4">
-      <div className="flex items-start justify-between mb-2">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-sm text-muted-foreground">
-              {new Date(order.created_at).toLocaleDateString('ar-EG')} - {new Date(order.created_at).toLocaleTimeString('ar-EG')}
-            </span>
-            <span className={`text-xs px-2 py-0.5 rounded-full ${
-              order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-              order.status === 'completed' ? 'bg-green-100 text-green-800' :
-              order.status === 'rejected' ? 'bg-red-100 text-red-800' :
-              'bg-gray-100 text-gray-800'
-            }`}>
-              {order.status === 'pending' ? 'قيد الانتظار' :
-               order.status === 'completed' ? 'مكتمل' :
-               order.status === 'rejected' ? 'مرفوض' : order.status}
-            </span>
+    <div className="bg-card rounded-lg border border-border shadow-sm overflow-visible">
+      <div className="p-4">
+        <div className="flex items-start justify-between mb-2">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-sm text-muted-foreground">
+                {new Date(order.created_at).toLocaleDateString('ar-EG')} - {new Date(order.created_at).toLocaleTimeString('ar-EG')}
+              </span>
+              <span className={`text-xs px-2 py-0.5 rounded-full ${
+                order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                order.status === 'completed' ? 'bg-green-100 text-green-800' :
+                order.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                'bg-gray-100 text-gray-800'
+              }`}>
+                {order.status === 'pending' ? 'قيد الانتظار' :
+                 order.status === 'completed' ? 'مكتمل' :
+                 order.status === 'rejected' ? 'مرفوض' : order.status}
+              </span>
+            </div>
+            <p className="font-bold">${order.amount}</p>
+            {order.email && <p className="text-sm text-muted-foreground">البريد: {order.email}</p>}
+            {order.verification_link && (
+              <a href={order.verification_link} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">
+                رابط التحقق
+              </a>
+            )}
           </div>
-          <p className="font-bold">${order.amount}</p>
-          {order.email && <p className="text-sm text-muted-foreground">البريد: {order.email}</p>}
-          {order.verification_link && (
-            <a href={order.verification_link} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">
-              رابط التحقق
-            </a>
-          )}
+          <button onClick={() => onDelete(order.id)} className="p-2 hover:bg-red-100 text-red-600 rounded-lg">
+            <Trash2 className="w-4 h-4" />
+          </button>
         </div>
-        <button onClick={() => onDelete(order.id)} className="p-2 hover:bg-red-100 text-red-600 rounded-lg">
-          <Trash2 className="w-4 h-4" />
-        </button>
       </div>
 
-      <div className="mt-4 pt-4 border-t border-border bg-muted/30 -mx-4 -mb-4 px-4 pb-4 rounded-b-lg">
-        <div className="flex items-center gap-3 mb-3">
-          <label className="text-sm font-bold text-foreground">الحالة:</label>
+      <div className="bg-muted/50 p-4 border-t border-border">
+        <div className="flex items-center gap-3 mb-4">
+          <label className="text-sm font-bold">الحالة:</label>
           <select
             value={selectedStatus}
             onChange={(e) => setSelectedStatus(e.target.value)}
-            className="input-field text-sm py-2 px-3 flex-1 max-w-[200px]"
+            className="input-field text-sm py-2 px-3"
           >
             <option value="pending">قيد الانتظار</option>
             <option value="completed">مكتمل</option>
@@ -108,12 +110,12 @@ const OrderCard = ({
           </select>
         </div>
         
-        <div className="mb-3">
-          <label className="text-sm font-bold text-foreground block mb-2">💬 رسالة للعميل:</label>
+        <div className="mb-4">
+          <label className="text-sm font-bold block mb-2">💬 رسالة للعميل:</label>
           <textarea
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            className="input-field w-full text-sm resize-none border-2 border-primary/20"
+            className="w-full p-3 border-2 border-primary/30 rounded-lg text-sm bg-card"
             rows={3}
             placeholder="اكتب رسالة تظهر للعميل عند تحديث الحالة..."
           />
