@@ -284,20 +284,20 @@ const ProductCard = ({
             <div className="flex items-center justify-between mb-4">
               <h4 className="font-semibold text-sm flex items-center gap-2">
                 <LayoutGrid className="w-4 h-4" />
-                خيارات المنتج ({options.length})
+                المنتجات ({options.length})
               </h4>
               <button
                 onClick={onAddOption}
                 className="text-sm text-primary hover:text-primary/80 flex items-center gap-1 font-medium"
               >
-                <Plus className="w-4 h-4" /> إضافة خيار
+                <Plus className="w-4 h-4" /> إضافة منتج
               </button>
             </div>
 
             {options.length === 0 ? (
               <div className="text-center py-6 text-muted-foreground">
                 <Settings className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">لا توجد خيارات - اضغط على "إضافة خيار" لإنشاء خيار جديد</p>
+                <p className="text-sm">لا توجد منتجات - اضغط على "إضافة منتج" لإنشاء منتج جديد</p>
               </div>
             ) : (
               <div className="grid gap-2">
@@ -307,7 +307,7 @@ const ProductCard = ({
                       <p className="font-medium truncate">{option.name}</p>
                       <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-muted-foreground">
                         <span className="bg-secondary px-2 py-0.5 rounded">
-                          {option.type === 'email_password' ? 'إيميل وباسورد' : option.type === 'link' ? 'رابط فقط' : option.type === 'full_activation' ? 'تفعيل كامل' : 'تخطي تحقق الطالب'}
+                          {option.type === 'email_password' ? 'إيميل وباسورد' : option.type === 'link' ? 'رابط فقط' : option.type === 'text' ? 'نص' : 'إيميل وباسورد'}
                         </span>
                         {option.price > 0 && (
                           <span className="text-primary font-medium">${option.price}</span>
@@ -784,7 +784,7 @@ const Admin = () => {
 
   const tabs = [
     { id: 'orders', label: 'الطلبات', icon: ShoppingBag, count: orders.length },
-    { id: 'products', label: 'المنتجات', icon: Package, count: products.length },
+    { id: 'products', label: 'الأقسام', icon: Package, count: products.length },
     { id: 'tokens', label: 'التوكنات', icon: Key, count: tokens.length },
   ];
 
@@ -873,19 +873,19 @@ const Admin = () => {
                 className="btn-primary flex items-center gap-2 px-5 py-3"
               >
                 <Plus className="w-5 h-5" />
-                <span>إضافة منتج</span>
+                <span>إضافة قسم</span>
               </button>
             </div>
 
             {products.length === 0 ? (
               <div className="text-center py-16 bg-card rounded-xl border border-border">
                 <Package className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
-                <p className="text-muted-foreground mb-4">لا توجد منتجات حالياً</p>
+                <p className="text-muted-foreground mb-4">لا توجد أقسام حالياً</p>
                 <button
                   onClick={() => openProductModal()}
                   className="btn-primary px-5 py-2"
                 >
-                  إضافة منتج جديد
+                  إضافة قسم جديد
                 </button>
               </div>
             ) : (
@@ -966,14 +966,15 @@ const Admin = () => {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
           <div className="bg-card rounded-2xl w-full max-w-lg shadow-2xl my-8">
             <div className="p-6 border-b border-border">
-              <h2 className="text-xl font-bold">{editingProduct ? 'تعديل المنتج' : 'إضافة منتج جديد'}</h2>
+              <h2 className="text-xl font-bold">{editingProduct ? 'تعديل القسم' : 'إضافة قسم جديد'}</h2>
+              <p className="text-sm text-muted-foreground mt-1">القسم يحتوي على المنتجات المتشابهة</p>
             </div>
             <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
               <div>
-                <label className="text-sm font-medium text-muted-foreground mb-2 block">اسم المنتج *</label>
+                <label className="text-sm font-medium text-muted-foreground mb-2 block">اسم القسم *</label>
                 <input
                   type="text"
-                  placeholder="مثال: Gemini - 12 شهر"
+                  placeholder="مثال: حسابات جيميل"
                   value={productForm.name}
                   onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
                   className="input-field w-full"
@@ -1053,33 +1054,33 @@ const Admin = () => {
                 )}
               </div>
 
-              {/* Service Types / Options Section - Only for new products */}
+              {/* Products Section - Only for new categories */}
               {!editingProduct && (
                 <div className="border-t border-border pt-4 mt-4">
                   <div className="flex items-center justify-between mb-3">
                     <label className="text-sm font-bold flex items-center gap-2">
                       <LayoutGrid className="w-4 h-4" />
-                      أنواع الخدمة (اختياري)
+                      المنتجات
                     </label>
                     <button
                       type="button"
                       onClick={addNewProductOption}
                       className="text-sm text-primary hover:text-primary/80 flex items-center gap-1 font-medium"
                     >
-                      <Plus className="w-4 h-4" /> إضافة نوع
+                      <Plus className="w-4 h-4" /> إضافة منتج
                     </button>
                   </div>
                   
                   {newProductOptions.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-4 bg-muted/30 rounded-lg">
-                      اضغط على "إضافة نوع" لإضافة أنواع خدمة للمنتج
+                      اضغط على "إضافة منتج" لإضافة منتجات لهذا القسم
                     </p>
                   ) : (
                     <div className="space-y-3">
                       {newProductOptions.map((opt, index) => (
                         <div key={index} className="bg-muted/30 p-3 rounded-lg space-y-2">
                           <div className="flex items-center justify-between">
-                            <span className="text-xs font-medium text-muted-foreground">نوع الخدمة #{index + 1}</span>
+                            <span className="text-xs font-medium text-muted-foreground">المنتج #{index + 1}</span>
                             <button
                               type="button"
                               onClick={() => removeNewProductOption(index)}
@@ -1091,7 +1092,7 @@ const Admin = () => {
                           <div className="grid grid-cols-2 gap-2">
                             <input
                               type="text"
-                              placeholder="اسم الخدمة"
+                              placeholder="اسم المنتج"
                               value={opt.name}
                               onChange={(e) => updateNewProductOption(index, 'name', e.target.value)}
                               className="input-field text-sm"
@@ -1124,7 +1125,7 @@ const Admin = () => {
                           </div>
                           <input
                             type="text"
-                            placeholder="وصف الخدمة (اختياري)"
+                            placeholder="وصف المنتج (اختياري)"
                             value={opt.description}
                             onChange={(e) => updateNewProductOption(index, 'description', e.target.value)}
                             className="input-field w-full text-sm"
@@ -1139,7 +1140,7 @@ const Admin = () => {
             <div className="p-6 border-t border-border flex gap-3">
               <button onClick={handleSaveProduct} className="btn-primary flex-1 py-3 flex items-center justify-center gap-2">
                 <Save className="w-4 h-4" />
-                {editingProduct ? 'حفظ التغييرات' : 'إضافة المنتج'}
+                {editingProduct ? 'حفظ التغييرات' : 'إضافة القسم'}
               </button>
               <button onClick={() => setShowProductModal(false)} className="px-6 py-3 border border-border rounded-lg hover:bg-muted transition-colors">
                 إلغاء
@@ -1154,14 +1155,14 @@ const Admin = () => {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-card rounded-2xl w-full max-w-md shadow-2xl">
             <div className="p-6 border-b border-border">
-              <h2 className="text-xl font-bold">{editingOption ? 'تعديل الخيار' : 'إضافة خيار جديد'}</h2>
+              <h2 className="text-xl font-bold">{editingOption ? 'تعديل المنتج' : 'إضافة منتج جديد'}</h2>
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="text-sm font-medium text-muted-foreground mb-2 block">اسم الخيار *</label>
+                <label className="text-sm font-medium text-muted-foreground mb-2 block">اسم المنتج *</label>
                 <input
                   type="text"
-                  placeholder="مثال: تفعيل كامل - سنة"
+                  placeholder="مثال: حساب جيميل - سنة"
                   value={optionForm.name}
                   onChange={(e) => setOptionForm({ ...optionForm, name: e.target.value })}
                   className="input-field w-full"
@@ -1203,7 +1204,7 @@ const Admin = () => {
                 <label className="text-sm font-medium text-muted-foreground mb-2 block">الوصف</label>
                 <input
                   type="text"
-                  placeholder="وصف مختصر للخيار..."
+                  placeholder="وصف مختصر للمنتج..."
                   value={optionForm.description}
                   onChange={(e) => setOptionForm({ ...optionForm, description: e.target.value })}
                   className="input-field w-full"
@@ -1213,7 +1214,7 @@ const Admin = () => {
             <div className="p-6 border-t border-border flex gap-3">
               <button onClick={handleSaveOption} className="btn-primary flex-1 py-3 flex items-center justify-center gap-2">
                 <Save className="w-4 h-4" />
-                {editingOption ? 'حفظ التغييرات' : 'إضافة الخيار'}
+                {editingOption ? 'حفظ التغييرات' : 'إضافة المنتج'}
               </button>
               <button onClick={() => setShowOptionModal(false)} className="px-6 py-3 border border-border rounded-lg hover:bg-muted transition-colors">
                 إلغاء
