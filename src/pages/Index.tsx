@@ -102,7 +102,7 @@ const Index = () => {
     if (selectedOption.type === 'student_verification' && !verificationLink.trim()) return;
     if (selectedOption.type === 'full_activation' && (!email.trim() || !password.trim())) return;
 
-    if (tokenBalance === null || tokenBalance < Number(product.price)) {
+    if (tokenBalance === null || tokenBalance < Number(selectedOption.price)) {
       setResult('error');
       setStep('result');
       return;
@@ -117,7 +117,7 @@ const Index = () => {
       option_id: selectedOption.id,
       email: selectedOption.type === 'full_activation' ? email : null,
       verification_link: selectedOption.type === 'student_verification' ? verificationLink : null,
-      amount: product.price,
+      amount: selectedOption.price,
       status: 'pending'
     });
 
@@ -132,7 +132,7 @@ const Index = () => {
     }
 
     // Deduct balance
-    const newBalance = tokenBalance - Number(product.price);
+    const newBalance = tokenBalance - Number(selectedOption.price);
     await supabase
       .from('tokens')
       .update({ balance: newBalance })
@@ -211,18 +211,11 @@ const Index = () => {
                     <SelectContent>
                       {products.map((p) => (
                         <SelectItem key={p.id} value={p.id}>
-                          {p.name} - ${p.price}
+                          {p.name} {p.duration && `- ${p.duration}`}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-
-                  {product && (
-                    <p className="text-xs text-muted-foreground mt-2">
-                      السعر: <span className="font-semibold text-primary">${product.price}</span>
-                      {product.duration && <span className="mr-2">• المدة: {product.duration}</span>}
-                    </p>
-                  )}
                 </div>
 
                 {product && options.length > 0 && (
@@ -242,9 +235,14 @@ const Index = () => {
                     </Select>
 
                     {selectedOption && (
-                      <p className="text-xs text-muted-foreground mt-2 p-2 bg-muted rounded-lg">
-                        {selectedOption.description}
-                      </p>
+                      <div className="mt-2 p-2 bg-muted rounded-lg">
+                        <p className="text-xs text-muted-foreground">
+                          {selectedOption.description}
+                        </p>
+                        <p className="text-sm font-semibold text-primary mt-1">
+                          السعر: ${selectedOption.price}
+                        </p>
+                      </div>
                     )}
                   </div>
                 )}
@@ -279,13 +277,13 @@ const Index = () => {
                   </div>
                   <div className="flex items-center justify-between mt-1">
                     <span className="text-sm text-muted-foreground">سعر الخدمة:</span>
-                    <span className="font-bold">${product.price}</span>
+                    <span className="font-bold">${selectedOption.price}</span>
                   </div>
                   <div className="border-t border-border mt-2 pt-2">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">المتبقي بعد الخصم:</span>
-                      <span className={`font-bold ${tokenBalance >= Number(product.price) ? 'text-green-600' : 'text-red-600'}`}>
-                        ${tokenBalance - Number(product.price)}
+                      <span className={`font-bold ${tokenBalance >= Number(selectedOption.price) ? 'text-green-600' : 'text-red-600'}`}>
+                        ${tokenBalance - Number(selectedOption.price)}
                       </span>
                     </div>
                   </div>
@@ -346,7 +344,7 @@ const Index = () => {
                     onClick={handleOrderSubmit}
                     disabled={
                       isLoading ||
-                      tokenBalance < Number(product.price) ||
+                      tokenBalance < Number(selectedOption.price) ||
                       (selectedOption.type === 'student_verification' && !verificationLink.trim()) ||
                       (selectedOption.type === 'full_activation' && (!email.trim() || !password.trim()))
                     }
