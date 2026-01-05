@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Package, Key, ShoppingBag, LogOut, Plus, Trash2, Edit2, Save, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Package, Key, ShoppingBag, LogOut, Plus, Trash2, Edit2, Save, X, ChevronDown, ChevronUp, Clock, CheckCircle2, XCircle, Loader2, PackageCheck, Mail, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface Product {
@@ -46,6 +46,45 @@ interface Order {
 }
 
 // Order Card Component with message input
+// Status configuration with icons and colors
+const statusConfig: Record<string, { label: string; icon: React.ReactNode; bgColor: string; textColor: string; borderColor: string }> = {
+  pending: { 
+    label: 'قيد الانتظار', 
+    icon: <Clock className="w-4 h-4" />, 
+    bgColor: 'bg-amber-50', 
+    textColor: 'text-amber-700',
+    borderColor: 'border-amber-200'
+  },
+  received: { 
+    label: 'تم استلام الطلب', 
+    icon: <PackageCheck className="w-4 h-4" />, 
+    bgColor: 'bg-blue-50', 
+    textColor: 'text-blue-700',
+    borderColor: 'border-blue-200'
+  },
+  in_progress: { 
+    label: 'قيد التنفيذ', 
+    icon: <Loader2 className="w-4 h-4" />, 
+    bgColor: 'bg-purple-50', 
+    textColor: 'text-purple-700',
+    borderColor: 'border-purple-200'
+  },
+  completed: { 
+    label: 'مكتمل', 
+    icon: <CheckCircle2 className="w-4 h-4" />, 
+    bgColor: 'bg-emerald-50', 
+    textColor: 'text-emerald-700',
+    borderColor: 'border-emerald-200'
+  },
+  rejected: { 
+    label: 'مرفوض', 
+    icon: <XCircle className="w-4 h-4" />, 
+    bgColor: 'bg-red-50', 
+    textColor: 'text-red-700',
+    borderColor: 'border-red-200'
+  },
+};
+
 const OrderCard = ({ 
   order, 
   onUpdateStatus, 
@@ -62,72 +101,100 @@ const OrderCard = ({
     onUpdateStatus(order.id, selectedStatus, message);
   };
 
+  const currentStatus = statusConfig[order.status] || statusConfig.pending;
+  const selectedStatusConfig = statusConfig[selectedStatus] || statusConfig.pending;
+
   return (
-    <div className="bg-card rounded-lg border border-border shadow-sm overflow-visible">
-      <div className="p-4">
-        <div className="flex items-start justify-between mb-2">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-sm text-muted-foreground">
-                {new Date(order.created_at).toLocaleDateString('ar-EG')} - {new Date(order.created_at).toLocaleTimeString('ar-EG')}
-              </span>
-              <span className={`text-xs px-2 py-0.5 rounded-full ${
-                order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                order.status === 'completed' ? 'bg-green-100 text-green-800' :
-                order.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                'bg-gray-100 text-gray-800'
-              }`}>
-                {order.status === 'pending' ? 'قيد الانتظار' :
-                 order.status === 'completed' ? 'مكتمل' :
-                 order.status === 'rejected' ? 'مرفوض' : order.status}
-              </span>
-            </div>
-            <p className="font-bold">${order.amount}</p>
-            {order.email && <p className="text-sm text-muted-foreground">البريد: {order.email}</p>}
-            {order.verification_link && (
-              <a href={order.verification_link} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">
-                رابط التحقق
-              </a>
-            )}
-          </div>
-          <button onClick={() => onDelete(order.id)} className="p-2 hover:bg-red-100 text-red-600 rounded-lg">
+    <div className={`rounded-xl border-2 ${currentStatus.borderColor} ${currentStatus.bgColor} shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md`}>
+      {/* Header with status badge */}
+      <div className={`px-4 py-3 ${currentStatus.bgColor} border-b ${currentStatus.borderColor} flex items-center justify-between`}>
+        <div className={`flex items-center gap-2 ${currentStatus.textColor} font-bold`}>
+          {currentStatus.icon}
+          <span>{currentStatus.label}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground bg-white/80 px-2 py-1 rounded-full">
+            {new Date(order.created_at).toLocaleDateString('ar-EG')} - {new Date(order.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
+          </span>
+          <button 
+            onClick={() => onDelete(order.id)} 
+            className="p-2 hover:bg-red-100 text-red-500 rounded-lg transition-colors"
+            title="حذف الطلب"
+          >
             <Trash2 className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      <div className="bg-muted/50 p-4 border-t border-border">
-        <div className="flex items-center gap-3 mb-4">
-          <label className="text-sm font-bold">الحالة:</label>
-          <select
-            value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value)}
-            className="input-field text-sm py-2 px-3"
-          >
-            <option value="pending">قيد الانتظار</option>
-            <option value="completed">مكتمل</option>
-            <option value="rejected">مرفوض</option>
-          </select>
-        </div>
-        
-        <div className="mb-4">
-          <label className="text-sm font-bold block mb-2">💬 رسالة للعميل:</label>
-          <textarea
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            className="w-full p-3 border-2 border-primary/30 rounded-lg text-sm bg-card"
-            rows={3}
-            placeholder="اكتب رسالة تظهر للعميل عند تحديث الحالة..."
-          />
+      {/* Order details */}
+      <div className="p-4 bg-white">
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-xl p-4 text-center">
+            <p className="text-xs text-muted-foreground mb-1">المبلغ</p>
+            <p className="text-2xl font-bold text-primary">${order.amount}</p>
+          </div>
+          <div className="space-y-2">
+            {order.email && (
+              <div className="flex items-center gap-2 text-sm bg-muted/50 rounded-lg px-3 py-2">
+                <Mail className="w-4 h-4 text-muted-foreground" />
+                <span className="truncate">{order.email}</span>
+              </div>
+            )}
+            {order.verification_link && (
+              <a 
+                href={order.verification_link} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="flex items-center gap-2 text-sm bg-primary/10 text-primary rounded-lg px-3 py-2 hover:bg-primary/20 transition-colors"
+              >
+                <ExternalLink className="w-4 h-4" />
+                <span>رابط التحقق</span>
+              </a>
+            )}
+          </div>
         </div>
 
-        <button 
-          onClick={handleSubmit}
-          className="btn-primary w-full py-3 text-sm flex items-center justify-center gap-2 font-bold"
-        >
-          <Save className="w-4 h-4" />
-          تحديث الطلب
-        </button>
+        {/* Status update section */}
+        <div className="bg-muted/30 rounded-xl p-4 space-y-4">
+          <div>
+            <label className="text-sm font-bold block mb-2">تغيير الحالة:</label>
+            <div className="grid grid-cols-5 gap-2">
+              {Object.entries(statusConfig).map(([key, config]) => (
+                <button
+                  key={key}
+                  onClick={() => setSelectedStatus(key)}
+                  className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all ${
+                    selectedStatus === key 
+                      ? `${config.borderColor} ${config.bgColor} ${config.textColor} shadow-sm` 
+                      : 'border-transparent bg-white hover:bg-muted/50'
+                  }`}
+                >
+                  {config.icon}
+                  <span className="text-xs font-medium text-center leading-tight">{config.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          
+          <div>
+            <label className="text-sm font-bold block mb-2">💬 رسالة للعميل:</label>
+            <textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              className="w-full p-3 border-2 border-border rounded-xl text-sm bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none"
+              rows={3}
+              placeholder="اكتب رسالة تظهر للعميل عند تحديث الحالة..."
+            />
+          </div>
+
+          <button 
+            onClick={handleSubmit}
+            className="btn-primary w-full py-3 rounded-xl text-sm flex items-center justify-center gap-2 font-bold shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all"
+          >
+            <Save className="w-4 h-4" />
+            تحديث الطلب
+          </button>
+        </div>
       </div>
     </div>
   );
