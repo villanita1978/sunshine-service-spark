@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import { supabase } from '@/integrations/supabase/client';
-import { ShoppingCart, Search, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { ShoppingCart, Search, CheckCircle, AlertCircle, Loader2, Clock, XCircle, CheckCircle2 } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -33,6 +33,16 @@ interface ProductOption {
   estimated_time: string | null;
 }
 
+interface Order {
+  id: string;
+  product_id: string | null;
+  option_id: string | null;
+  amount: number;
+  status: string;
+  created_at: string;
+  response_message: string | null;
+}
+
 const Index = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [productOptions, setProductOptions] = useState<ProductOption[]>([]);
@@ -52,6 +62,7 @@ const Index = () => {
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
   const [orderStatus, setOrderStatus] = useState<string>('pending');
   const [responseMessage, setResponseMessage] = useState<string | null>(null);
+  const [tokenOrders, setTokenOrders] = useState<Order[]>([]);
   const { toast } = useToast();
 
   const product = products.find(p => p.id === selectedProductId);
@@ -225,12 +236,20 @@ const Index = () => {
 
     setIsLoading(true);
     const data = await verifyToken(token);
-    setIsLoading(false);
 
     if (data) {
       setTokenData(data);
       setTokenBalance(Number(data.balance));
       setShowBalance(true);
+      
+      // Fetch orders for this token
+      const { data: ordersData } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('token_id', data.id)
+        .order('created_at', { ascending: false });
+      
+      setTokenOrders(ordersData || []);
     } else {
       toast({
         title: 'خطأ',
@@ -238,7 +257,32 @@ const Index = () => {
         variant: 'destructive',
       });
       setShowBalance(false);
+      setTokenOrders([]);
     }
+    setIsLoading(false);
+  };
+
+  const getStatusInfo = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return { label: 'مكتمل', icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-100' };
+      case 'rejected':
+        return { label: 'مرفوض', icon: XCircle, color: 'text-red-600', bg: 'bg-red-100' };
+      case 'in_progress':
+        return { label: 'قيد التنفيذ', icon: Loader2, color: 'text-blue-600', bg: 'bg-blue-100' };
+      default:
+        return { label: 'قيد الانتظار', icon: Clock, color: 'text-yellow-600', bg: 'bg-yellow-100' };
+    }
+  };
+
+  const getProductName = (productId: string | null, optionId: string | null) => {
+    if (!productId && !optionId) return 'غير معروف';
+    const product = products.find(p => p.id === productId);
+    const option = productOptions.find(o => o.id === optionId);
+    if (product && option) {
+      return `${product.name} - ${option.name}`;
+    }
+    return product?.name || option?.name || 'غير معروف';
   };
 
   return (
@@ -552,10 +596,61 @@ const Index = () => {
               </button>
 
               {showBalance && tokenBalance !== null && (
-                <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">الرصيد الحالي:</span>
-                    <span className="text-2xl font-bold text-primary">${tokenBalance}</span>
+                <div className="space-y-4">
+                  {/* Balance Display */}
+                  <div className="p-4 rounded-xl bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">الرصيد الحالي:</span>
+                      <span className="text-2xl font-bold text-primary">${tokenBalance}</span>
+                    </div>
+                  </div>
+
+                  {/* Orders History */}
+                  <div className="border-t border-border pt-4">
+                    <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                      <ShoppingCart className="w-4 h-4" />
+                      سجل الطلبات ({tokenOrders.length})
+                    </h3>
+                    
+                    {tokenOrders.length === 0 ? (
+                      <div className="text-center py-6 bg-muted/30 rounded-lg">
+                        <ShoppingCart className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
+                        <p className="text-sm text-muted-foreground">لا توجد طلبات سابقة</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-64 overflow-y-auto">
+                        {tokenOrders.map((order) => {
+                          const statusInfo = getStatusInfo(order.status);
+                          const StatusIcon = statusInfo.icon;
+                          return (
+                            <div key={order.id} className="bg-muted/30 rounded-lg p-3 border border-border">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-sm truncate">
+                                    {getProductName(order.product_id, order.option_id)}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {new Date(order.created_at).toLocaleDateString('ar-EG')} - {new Date(order.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
+                                  </p>
+                                </div>
+                                <div className="text-left">
+                                  <span className="font-bold text-primary text-sm">${order.amount}</span>
+                                  <div className={`flex items-center gap-1 mt-1 ${statusInfo.color}`}>
+                                    <StatusIcon className={`w-3 h-3 ${order.status === 'in_progress' ? 'animate-spin' : ''}`} />
+                                    <span className="text-xs font-medium">{statusInfo.label}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              {order.response_message && (
+                                <p className="text-xs text-muted-foreground mt-2 p-2 bg-background rounded border">
+                                  {order.response_message}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
