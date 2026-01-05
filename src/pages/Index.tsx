@@ -102,8 +102,8 @@ const Index = () => {
   const handleOrderSubmit = async () => {
     if (!selectedOption || !tokenData || !product) return;
 
-    if (selectedOption.type === 'student_verification' && !verificationLink.trim()) return;
-    if (selectedOption.type === 'full_activation' && (!email.trim() || !password.trim())) return;
+    if (selectedOption.type === 'link' && !verificationLink.trim()) return;
+    if (selectedOption.type === 'email_password' && (!email.trim() || !password.trim())) return;
 
     if (tokenBalance === null || tokenBalance < Number(selectedOption.price)) {
       setResult('error');
@@ -118,9 +118,9 @@ const Index = () => {
       token_id: tokenData.id,
       product_id: product.id,
       option_id: selectedOption.id,
-      email: selectedOption.type === 'full_activation' ? email : null,
-      password: selectedOption.type === 'full_activation' ? password : null,
-      verification_link: selectedOption.type === 'verification_bypass' ? verificationLink : null,
+      email: selectedOption.type === 'email_password' ? email : null,
+      password: selectedOption.type === 'email_password' ? password : null,
+      verification_link: selectedOption.type === 'link' ? verificationLink : null,
       amount: selectedOption.price,
       status: 'pending'
     }).select('id').single();
@@ -368,15 +368,15 @@ const Index = () => {
                 </div>
               </div>
 
-              {selectedOption.type === 'verification_bypass' && (
+              {selectedOption.type === 'link' && (
                 <div>
-                  <label className="block text-sm font-medium mb-2">رابط التحقق</label>
+                  <label className="block text-sm font-medium mb-2">الرابط</label>
                   <input
                     type="text"
                     value={verificationLink}
                     onChange={(e) => setVerificationLink(e.target.value)}
                     className="input-field w-full"
-                    placeholder="ادخل رابط التحقق الطلابي"
+                    placeholder="ادخل الرابط"
                   />
                   <p className="text-xs text-muted-foreground mt-1">
                     الوقت المتوقع: {selectedOption.estimated_time}
@@ -384,7 +384,7 @@ const Index = () => {
                 </div>
               )}
 
-              {selectedOption.type === 'full_activation' && (
+              {selectedOption.type === 'email_password' && (
                 <div className="space-y-3">
                   <div>
                     <label className="block text-sm font-medium mb-2">الإيميل</label>
@@ -424,8 +424,8 @@ const Index = () => {
                   disabled={
                     isLoading ||
                     tokenBalance < Number(selectedOption.price) ||
-                    (selectedOption.type === 'verification_bypass' && !verificationLink.trim()) ||
-                    (selectedOption.type === 'full_activation' && (!email.trim() || !password.trim()))
+                    (selectedOption.type === 'link' && !verificationLink.trim()) ||
+                    (selectedOption.type === 'email_password' && (!email.trim() || !password.trim()))
                   }
                   className="btn-primary flex-1 py-3 disabled:opacity-50"
                 >
