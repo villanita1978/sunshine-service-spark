@@ -136,6 +136,7 @@ export type Database = {
           duration: string | null
           id: string
           image: string | null
+          instant_delivery: boolean | null
           name: string
           price: number | null
           updated_at: string
@@ -147,6 +148,7 @@ export type Database = {
           duration?: string | null
           id?: string
           image?: string | null
+          instant_delivery?: boolean | null
           name: string
           price?: number | null
           updated_at?: string
@@ -158,11 +160,57 @@ export type Database = {
           duration?: string | null
           id?: string
           image?: string | null
+          instant_delivery?: boolean | null
           name?: string
           price?: number | null
           updated_at?: string
         }
         Relationships: []
+      }
+      stock_items: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          is_sold: boolean
+          product_id: string
+          sold_at: string | null
+          sold_to_order_id: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          is_sold?: boolean
+          product_id: string
+          sold_at?: string | null
+          sold_to_order_id?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_sold?: boolean
+          product_id?: string
+          sold_at?: string | null
+          sold_to_order_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_items_sold_to_order_id_fkey"
+            columns: ["sold_to_order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tokens: {
         Row: {
