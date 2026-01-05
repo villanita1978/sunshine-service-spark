@@ -1266,7 +1266,7 @@ const Admin = () => {
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => setOptionForm({ ...optionForm, delivery_type: 'manual' })}
+                    onClick={() => setOptionForm({ ...optionForm, delivery_type: 'manual', type: optionForm.type === 'none' ? 'email_password' : optionForm.type })}
                     className={`flex-1 py-2.5 px-3 rounded-lg border text-sm font-medium transition-all flex items-center justify-center gap-2 ${
                       optionForm.delivery_type === 'manual' 
                         ? 'bg-warning/10 border-warning text-warning' 
