@@ -21,7 +21,8 @@ interface Product {
 
 interface StockItem {
   id: string;
-  product_id: string;
+  product_id: string | null;
+  option_id: string | null;
   content: string;
   is_sold: boolean;
 }
@@ -201,6 +202,8 @@ const ProductCard = ({
   onEditOption,
   onDeleteOption,
   onManageStock,
+  onManageOptionStock,
+  getOptionStockCount,
 }: {
   product: Product;
   options: ProductOption[];
@@ -213,6 +216,8 @@ const ProductCard = ({
   onEditOption: (option: ProductOption) => void;
   onDeleteOption: (id: string) => void;
   onManageStock: () => void;
+  onManageOptionStock: (optionId: string) => void;
+  getOptionStockCount: (optionId: string) => number;
 }) => {
   return (
     <div className="bg-card rounded-xl border border-border overflow-hidden hover:shadow-md transition-shadow">
@@ -317,12 +322,26 @@ const ProductCard = ({
                             <Clock className="w-3 h-3" /> {option.estimated_time}
                           </span>
                         )}
+                        {product.instant_delivery && (
+                          <span className="flex items-center gap-1 text-success">
+                            <Database className="w-3 h-3" /> مخزون: {getOptionStockCount(option.id)}
+                          </span>
+                        )}
                       </div>
                       {option.description && (
                         <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{option.description}</p>
                       )}
                     </div>
                     <div className="flex items-center gap-1">
+                      {product.instant_delivery && (
+                        <button
+                          onClick={() => onManageOptionStock(option.id)}
+                          className="p-1.5 hover:bg-success/10 text-success rounded transition-colors"
+                          title="إدارة مخزون هذا المنتج"
+                        >
+                          <Database className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                       <button onClick={() => onEditOption(option)} className="p-1.5 hover:bg-muted rounded transition-colors">
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
@@ -376,6 +395,7 @@ const Admin = () => {
   const [newStockItems, setNewStockItems] = useState<string>('');
   const [showStockModal, setShowStockModal] = useState(false);
   const [currentStockProductId, setCurrentStockProductId] = useState<string | null>(null);
+  const [currentStockOptionId, setCurrentStockOptionId] = useState<string | null>(null);
 
   useEffect(() => {
     checkAuth();
@@ -725,9 +745,14 @@ const Admin = () => {
     return stockItems.filter(item => item.product_id === productId && !item.is_sold);
   };
 
+  const getOptionStock = (optionId: string) => {
+    return stockItems.filter(item => item.option_id === optionId && !item.is_sold);
+  };
+
   // Stock modal handlers
-  const openStockModal = (productId: string) => {
+  const openStockModal = (productId: string, optionId?: string) => {
     setCurrentStockProductId(productId);
+    setCurrentStockOptionId(optionId || null);
     setNewStockItems('');
     setShowStockModal(true);
   };
@@ -745,7 +770,8 @@ const Admin = () => {
     }
 
     const stockToInsert = items.map(content => ({
-      product_id: currentStockProductId,
+      product_id: currentStockOptionId ? null : currentStockProductId,
+      option_id: currentStockOptionId || null,
       content: content.trim(),
       is_sold: false
     }));
@@ -904,6 +930,8 @@ const Admin = () => {
                     onEditOption={(option) => openOptionModal(product.id, option)}
                     onDeleteOption={handleDeleteOption}
                     onManageStock={() => openStockModal(product.id)}
+                    onManageOptionStock={(optionId) => openStockModal(product.id, optionId)}
+                    getOptionStockCount={(optionId) => getOptionStock(optionId).length}
                   />
                 ))}
               </div>
@@ -1269,16 +1297,16 @@ const Admin = () => {
       )}
 
       {/* Stock Management Modal */}
-      {showStockModal && currentStockProductId && (
+      {showStockModal && (currentStockProductId || currentStockOptionId) && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
           <div className="bg-card rounded-2xl w-full max-w-lg shadow-2xl my-8">
             <div className="p-6 border-b border-border">
               <h2 className="text-xl font-bold flex items-center gap-2">
                 <Database className="w-5 h-5 text-success" />
-                إدارة المخزون
+                إدارة المخزون {currentStockOptionId ? '(للمنتج)' : '(للقسم)'}
               </h2>
               <p className="text-sm text-muted-foreground mt-1">
-                المتوفر حالياً: {getProductStock(currentStockProductId).length} عنصر
+                المتوفر حالياً: {currentStockOptionId ? getOptionStock(currentStockOptionId).length : getProductStock(currentStockProductId!).length} عنصر
               </p>
             </div>
             <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
@@ -1313,16 +1341,16 @@ const Admin = () => {
               {/* Current stock items */}
               <div className="border-t border-border pt-4">
                 <label className="text-sm font-medium text-muted-foreground mb-3 block">
-                  العناصر المتوفرة ({getProductStock(currentStockProductId).length})
+                  العناصر المتوفرة ({currentStockOptionId ? getOptionStock(currentStockOptionId).length : getProductStock(currentStockProductId!).length})
                 </label>
-                {getProductStock(currentStockProductId).length === 0 ? (
+                {(currentStockOptionId ? getOptionStock(currentStockOptionId).length : getProductStock(currentStockProductId!).length) === 0 ? (
                   <div className="text-center py-6 text-muted-foreground bg-muted/30 rounded-lg">
                     <Database className="w-8 h-8 mx-auto mb-2 opacity-50" />
                     <p className="text-sm">لا توجد عناصر في المخزون</p>
                   </div>
                 ) : (
                   <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {getProductStock(currentStockProductId).map((item) => (
+                    {(currentStockOptionId ? getOptionStock(currentStockOptionId) : getProductStock(currentStockProductId!)).map((item) => (
                       <div key={item.id} className="bg-muted/30 p-2 rounded-lg flex items-center justify-between gap-2">
                         <code className="text-xs font-mono truncate flex-1">{item.content}</code>
                         <button
@@ -1339,7 +1367,10 @@ const Admin = () => {
             </div>
             <div className="p-6 border-t border-border">
               <button
-                onClick={() => setShowStockModal(false)}
+                onClick={() => {
+                  setShowStockModal(false);
+                  setCurrentStockOptionId(null);
+                }}
                 className="w-full py-3 border border-border rounded-lg hover:bg-muted transition-colors"
               >
                 إغلاق

@@ -173,7 +173,8 @@ export type Database = {
           created_at: string
           id: string
           is_sold: boolean
-          product_id: string
+          option_id: string | null
+          product_id: string | null
           sold_at: string | null
           sold_to_order_id: string | null
         }
@@ -182,7 +183,8 @@ export type Database = {
           created_at?: string
           id?: string
           is_sold?: boolean
-          product_id: string
+          option_id?: string | null
+          product_id?: string | null
           sold_at?: string | null
           sold_to_order_id?: string | null
         }
@@ -191,11 +193,19 @@ export type Database = {
           created_at?: string
           id?: string
           is_sold?: boolean
-          product_id?: string
+          option_id?: string | null
+          product_id?: string | null
           sold_at?: string | null
           sold_to_order_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "stock_items_option_id_fkey"
+            columns: ["option_id"]
+            isOneToOne: false
+            referencedRelation: "product_options"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "stock_items_product_id_fkey"
             columns: ["product_id"]
