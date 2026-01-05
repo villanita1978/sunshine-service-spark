@@ -22,6 +22,7 @@ export type Database = {
           id: string
           option_id: string | null
           product_id: string | null
+          response_message: string | null
           status: string
           token_id: string | null
           verification_link: string | null
@@ -33,6 +34,7 @@ export type Database = {
           id?: string
           option_id?: string | null
           product_id?: string | null
+          response_message?: string | null
           status?: string
           token_id?: string | null
           verification_link?: string | null
@@ -44,6 +46,7 @@ export type Database = {
           id?: string
           option_id?: string | null
           product_id?: string | null
+          response_message?: string | null
           status?: string
           token_id?: string | null
           verification_link?: string | null

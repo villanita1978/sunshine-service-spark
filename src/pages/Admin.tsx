@@ -42,7 +42,94 @@ interface Order {
   created_at: string;
   email: string | null;
   verification_link: string | null;
+  response_message: string | null;
 }
+
+// Order Card Component with message input
+const OrderCard = ({ 
+  order, 
+  onUpdateStatus, 
+  onDelete 
+}: { 
+  order: Order; 
+  onUpdateStatus: (id: string, status: string, message?: string) => void;
+  onDelete: (id: string) => void;
+}) => {
+  const [message, setMessage] = useState(order.response_message || '');
+  const [selectedStatus, setSelectedStatus] = useState(order.status);
+
+  const handleSubmit = () => {
+    onUpdateStatus(order.id, selectedStatus, message);
+  };
+
+  return (
+    <div className="card-simple p-4">
+      <div className="flex items-start justify-between mb-2">
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-sm text-muted-foreground">
+              {new Date(order.created_at).toLocaleDateString('ar-EG')} - {new Date(order.created_at).toLocaleTimeString('ar-EG')}
+            </span>
+            <span className={`text-xs px-2 py-0.5 rounded-full ${
+              order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+              order.status === 'completed' ? 'bg-green-100 text-green-800' :
+              order.status === 'rejected' ? 'bg-red-100 text-red-800' :
+              'bg-gray-100 text-gray-800'
+            }`}>
+              {order.status === 'pending' ? 'قيد الانتظار' :
+               order.status === 'completed' ? 'مكتمل' :
+               order.status === 'rejected' ? 'مرفوض' : order.status}
+            </span>
+          </div>
+          <p className="font-bold">${order.amount}</p>
+          {order.email && <p className="text-sm text-muted-foreground">البريد: {order.email}</p>}
+          {order.verification_link && (
+            <a href={order.verification_link} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">
+              رابط التحقق
+            </a>
+          )}
+        </div>
+        <button onClick={() => onDelete(order.id)} className="p-2 hover:bg-red-100 text-red-600 rounded-lg">
+          <Trash2 className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="space-y-2 mt-3 pt-3 border-t border-border">
+        <div className="flex items-center gap-2">
+          <span className="text-sm">الحالة:</span>
+          <select
+            value={selectedStatus}
+            onChange={(e) => setSelectedStatus(e.target.value)}
+            className="input-field text-sm flex-1"
+          >
+            <option value="pending">قيد الانتظار</option>
+            <option value="completed">مكتمل</option>
+            <option value="rejected">مرفوض</option>
+          </select>
+        </div>
+        
+        <div>
+          <label className="text-sm text-muted-foreground">رسالة للعميل:</label>
+          <textarea
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            className="input-field w-full mt-1 text-sm"
+            rows={2}
+            placeholder="اكتب رسالة تظهر للعميل..."
+          />
+        </div>
+
+        <button 
+          onClick={handleSubmit}
+          className="btn-primary w-full py-2 text-sm flex items-center justify-center gap-2"
+        >
+          <Save className="w-4 h-4" />
+          تحديث الطلب
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const Admin = () => {
   const [activeTab, setActiveTab] = useState<'products' | 'tokens' | 'orders'>('products');
@@ -311,8 +398,12 @@ const Admin = () => {
   };
 
   // Orders
-  const handleUpdateOrderStatus = async (id: string, status: string) => {
-    const { error } = await supabase.from('orders').update({ status }).eq('id', id);
+  const handleUpdateOrderStatus = async (id: string, status: string, responseMessage?: string) => {
+    const updateData: { status: string; response_message?: string } = { status };
+    if (responseMessage !== undefined) {
+      updateData.response_message = responseMessage;
+    }
+    const { error } = await supabase.from('orders').update(updateData).eq('id', id);
     if (error) {
       toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
     } else {
@@ -733,40 +824,12 @@ const Admin = () => {
 
             <div className="space-y-3">
               {orders.map((order) => (
-                <div key={order.id} className="card-simple p-4">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm text-muted-foreground">
-                          {new Date(order.created_at).toLocaleDateString('ar-EG')} - {new Date(order.created_at).toLocaleTimeString('ar-EG')}
-                        </span>
-                      </div>
-                      <p className="font-bold">${order.amount}</p>
-                      {order.email && <p className="text-sm text-muted-foreground">البريد: {order.email}</p>}
-                      {order.verification_link && (
-                        <a href={order.verification_link} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">
-                          رابط التحقق
-                        </a>
-                      )}
-                    </div>
-                    <button onClick={() => handleDeleteOrder(order.id)} className="p-2 hover:bg-red-100 text-red-600 rounded-lg">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm">الحالة:</span>
-                    <select
-                      value={order.status}
-                      onChange={(e) => handleUpdateOrderStatus(order.id, e.target.value)}
-                      className="input-field text-sm flex-1"
-                    >
-                      <option value="pending">قيد الانتظار</option>
-                      <option value="processing">قيد المعالجة</option>
-                      <option value="completed">مكتمل</option>
-                      <option value="cancelled">ملغي</option>
-                    </select>
-                  </div>
-                </div>
+                <OrderCard 
+                  key={order.id} 
+                  order={order} 
+                  onUpdateStatus={handleUpdateOrderStatus}
+                  onDelete={handleDeleteOrder}
+                />
               ))}
               {orders.length === 0 && (
                 <p className="text-center text-muted-foreground py-8">لا توجد طلبات</p>

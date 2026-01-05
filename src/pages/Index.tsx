@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import { supabase } from '@/integrations/supabase/client';
-import { ShoppingCart, Search, CheckCircle, AlertCircle } from 'lucide-react';
+import { ShoppingCart, Search, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -42,12 +42,15 @@ const Index = () => {
   const [verificationLink, setVerificationLink] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [step, setStep] = useState<'initial' | 'details' | 'result'>('initial');
+  const [step, setStep] = useState<'initial' | 'details' | 'waiting' | 'result'>('initial');
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<'success' | 'error' | null>(null);
   const [showBalance, setShowBalance] = useState(false);
   const [tokenBalance, setTokenBalance] = useState<number | null>(null);
   const [tokenData, setTokenData] = useState<{ id: string; balance: number } | null>(null);
+  const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
+  const [orderStatus, setOrderStatus] = useState<string>('pending');
+  const [responseMessage, setResponseMessage] = useState<string | null>(null);
   const { toast } = useToast();
 
   const product = products.find(p => p.id === selectedProductId);
@@ -110,18 +113,18 @@ const Index = () => {
 
     setIsLoading(true);
 
-    // Create order
-    const { error: orderError } = await supabase.from('orders').insert({
+    // Create order and get the ID
+    const { data: orderData, error: orderError } = await supabase.from('orders').insert({
       token_id: tokenData.id,
       product_id: product.id,
       option_id: selectedOption.id,
       email: selectedOption.type === 'full_activation' ? email : null,
-      verification_link: selectedOption.type === 'student_verification' ? verificationLink : null,
+      verification_link: selectedOption.type === 'verification_bypass' ? verificationLink : null,
       amount: selectedOption.price,
       status: 'pending'
-    });
+    }).select('id').single();
 
-    if (orderError) {
+    if (orderError || !orderData) {
       toast({
         title: 'خطأ',
         description: 'فشل في إرسال الطلب',
@@ -139,9 +142,11 @@ const Index = () => {
       .eq('id', tokenData.id);
 
     setTokenBalance(newBalance);
+    setCurrentOrderId(orderData.id);
+    setOrderStatus('pending');
+    setResponseMessage(null);
     setIsLoading(false);
-    setResult('success');
-    setStep('result');
+    setStep('waiting');
   };
 
   const handleReset = () => {
@@ -155,7 +160,42 @@ const Index = () => {
     setResult(null);
     setTokenData(null);
     setTokenBalance(null);
+    setCurrentOrderId(null);
+    setOrderStatus('pending');
+    setResponseMessage(null);
   };
+
+  // Subscribe to order updates in real-time
+  useEffect(() => {
+    if (!currentOrderId || step !== 'waiting') return;
+
+    const channel = supabase
+      .channel(`order-${currentOrderId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders',
+          filter: `id=eq.${currentOrderId}`
+        },
+        (payload) => {
+          const updatedOrder = payload.new as { status: string; response_message: string | null };
+          setOrderStatus(updatedOrder.status);
+          setResponseMessage(updatedOrder.response_message);
+          
+          if (updatedOrder.status !== 'pending') {
+            setResult(updatedOrder.status === 'completed' ? 'success' : 'error');
+            setStep('result');
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentOrderId, step]);
 
   const handleProductChange = (value: string) => {
     setSelectedProductId(value);
@@ -380,6 +420,21 @@ const Index = () => {
             </div>
           )}
 
+          {step === 'waiting' && (
+            <div className="space-y-4 text-center py-8">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                <Loader2 className="w-8 h-8 text-primary animate-spin" />
+              </div>
+              <h3 className="text-lg font-bold">جاري معالجة طلبك...</h3>
+              <p className="text-sm text-muted-foreground">
+                يرجى الانتظار، سيتم تفعيل الخدمة خلال {selectedOption?.estimated_time}
+              </p>
+              <div className="p-3 rounded-lg bg-muted">
+                <p className="text-sm">الرصيد المتبقي: <span className="font-bold">${tokenBalance}</span></p>
+              </div>
+            </div>
+          )}
+
           {step === 'result' && (
             <div className="space-y-4 text-center py-4">
               {result === 'success' ? (
@@ -387,10 +442,12 @@ const Index = () => {
                   <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto">
                     <CheckCircle className="w-8 h-8 text-green-600" />
                   </div>
-                  <h3 className="text-lg font-bold text-green-600">تم إرسال الطلب بنجاح!</h3>
-                  <p className="text-sm text-muted-foreground">
-                    سيتم تفعيل الخدمة خلال {selectedOption?.estimated_time}
-                  </p>
+                  <h3 className="text-lg font-bold text-green-600">تم تفعيل الخدمة بنجاح!</h3>
+                  {responseMessage && (
+                    <div className="p-3 rounded-lg bg-green-50 border border-green-200">
+                      <p className="text-sm text-green-800">{responseMessage}</p>
+                    </div>
+                  )}
                   <div className="p-3 rounded-lg bg-muted">
                     <p className="text-sm">الرصيد المتبقي: <span className="font-bold">${tokenBalance}</span></p>
                   </div>
@@ -400,10 +457,14 @@ const Index = () => {
                   <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto">
                     <AlertCircle className="w-8 h-8 text-red-600" />
                   </div>
-                  <h3 className="text-lg font-bold text-red-600">فشل في إرسال الطلب</h3>
-                  <p className="text-sm text-muted-foreground">
-                    الرصيد غير كافي لإتمام العملية
-                  </p>
+                  <h3 className="text-lg font-bold text-red-600">
+                    {orderStatus === 'rejected' ? 'تم رفض الطلب' : 'فشل في إتمام الطلب'}
+                  </h3>
+                  {responseMessage && (
+                    <div className="p-3 rounded-lg bg-red-50 border border-red-200">
+                      <p className="text-sm text-red-800">{responseMessage}</p>
+                    </div>
+                  )}
                 </>
               )}
               <button
