@@ -418,7 +418,7 @@ const Index = () => {
                         const isAutoDelivery = opt.type === 'none' || !opt.type;
                         return (
                           <SelectItem key={opt.id} value={opt.id} disabled={isAutoDelivery && stockCount === 0}>
-                            {opt.name} {isAutoDelivery && `(متوفر: ${stockCount})`}
+                            {opt.name}
                           </SelectItem>
                         );
                       })}
