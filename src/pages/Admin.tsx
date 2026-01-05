@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { 
   Package, Key, ShoppingBag, LogOut, Plus, Trash2, Edit2, Save, X, 
   ChevronDown, ChevronUp, Settings, Copy, Eye, EyeOff, Clock, CheckCircle2,
-  XCircle, Loader2, LayoutGrid
+  XCircle, Loader2, LayoutGrid, Zap, Database
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -16,6 +16,14 @@ interface Product {
   price: number;
   duration: string | null;
   available: number | null;
+  instant_delivery?: boolean;
+}
+
+interface StockItem {
+  id: string;
+  product_id: string;
+  content: string;
+  is_sold: boolean;
 }
 
 interface ProductOption {
@@ -184,6 +192,7 @@ const OrderCard = ({
 const ProductCard = ({
   product,
   options,
+  stockCount,
   isExpanded,
   onToggleExpand,
   onEdit,
@@ -191,9 +200,11 @@ const ProductCard = ({
   onAddOption,
   onEditOption,
   onDeleteOption,
+  onManageStock,
 }: {
   product: Product;
   options: ProductOption[];
+  stockCount: number;
   isExpanded: boolean;
   onToggleExpand: () => void;
   onEdit: () => void;
@@ -201,13 +212,21 @@ const ProductCard = ({
   onAddOption: () => void;
   onEditOption: (option: ProductOption) => void;
   onDeleteOption: (id: string) => void;
+  onManageStock: () => void;
 }) => {
   return (
     <div className="bg-card rounded-xl border border-border overflow-hidden hover:shadow-md transition-shadow">
       <div className="p-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-lg truncate">{product.name}</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-lg truncate">{product.name}</h3>
+              {product.instant_delivery && (
+                <span className="bg-success/20 text-success px-2 py-0.5 rounded-md text-xs font-medium flex items-center gap-1">
+                  <Zap className="w-3 h-3" /> استلام فوري
+                </span>
+              )}
+            </div>
             <div className="flex flex-wrap items-center gap-3 mt-2 text-sm text-muted-foreground">
               {product.price > 0 && (
                 <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-md font-medium">${product.price}</span>
@@ -217,15 +236,30 @@ const ProductCard = ({
                   <Clock className="w-3 h-3" /> {product.duration}
                 </span>
               )}
-              <span className="flex items-center gap-1">
-                <Package className="w-3 h-3" /> متوفر: {product.available || 0}
-              </span>
+              {product.instant_delivery ? (
+                <span className="flex items-center gap-1 text-success">
+                  <Database className="w-3 h-3" /> المخزون: {stockCount}
+                </span>
+              ) : (
+                <span className="flex items-center gap-1">
+                  <Package className="w-3 h-3" /> متوفر: {product.available || 0}
+                </span>
+              )}
               <span className="flex items-center gap-1 text-primary">
                 <Settings className="w-3 h-3" /> {options.length} خيارات
               </span>
             </div>
           </div>
           <div className="flex items-center gap-1">
+            {product.instant_delivery && (
+              <button
+                onClick={onManageStock}
+                className="p-2 hover:bg-success/10 text-success rounded-lg transition-colors"
+                title="إدارة المخزون"
+              >
+                <Database className="w-4 h-4" />
+              </button>
+            )}
             <button
               onClick={onToggleExpand}
               className="p-2 hover:bg-muted rounded-lg transition-colors"
@@ -273,8 +307,11 @@ const ProductCard = ({
                       <p className="font-medium truncate">{option.name}</p>
                       <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-muted-foreground">
                         <span className="bg-secondary px-2 py-0.5 rounded">
-                          {option.type === 'full_activation' ? 'تفعيل كامل' : 'تخطي تحقق الطالب'}
+                          {option.type === 'email_password' ? 'إيميل وباسورد' : option.type === 'link' ? 'رابط فقط' : option.type === 'full_activation' ? 'تفعيل كامل' : 'تخطي تحقق الطالب'}
                         </span>
+                        {option.price > 0 && (
+                          <span className="text-primary font-medium">${option.price}</span>
+                        )}
                         {option.estimated_time && (
                           <span className="flex items-center gap-1">
                             <Clock className="w-3 h-3" /> {option.estimated_time}
@@ -327,12 +364,18 @@ const Admin = () => {
   const [currentProductId, setCurrentProductId] = useState<string | null>(null);
 
   // Form states
-  const [productForm, setProductForm] = useState({ name: '', price: 0, duration: '', available: 0 });
+  const [productForm, setProductForm] = useState({ name: '', price: 0, duration: '', available: 0, instant_delivery: false });
   const [optionForm, setOptionForm] = useState({ name: '', type: 'full_activation', description: '', estimated_time: '' });
   const [tokenForm, setTokenForm] = useState({ token: '', balance: 0 });
   
   // New options to add with product
   const [newProductOptions, setNewProductOptions] = useState<Array<{ name: string; price: number; description: string; estimated_time: string; input_type: string }>>([]);
+  
+  // Stock items for instant delivery
+  const [stockItems, setStockItems] = useState<StockItem[]>([]);
+  const [newStockItems, setNewStockItems] = useState<string>('');
+  const [showStockModal, setShowStockModal] = useState(false);
+  const [currentStockProductId, setCurrentStockProductId] = useState<string | null>(null);
 
   useEffect(() => {
     checkAuth();
@@ -369,8 +412,10 @@ const Admin = () => {
     if (activeTab === 'products') {
       const { data: productsData } = await supabase.from('products').select('*').order('created_at', { ascending: false });
       const { data: optionsData } = await supabase.from('product_options').select('*');
+      const { data: stockData } = await supabase.from('stock_items').select('*').eq('is_sold', false);
       setProducts(productsData || []);
       setProductOptions(optionsData || []);
+      setStockItems(stockData || []);
     } else if (activeTab === 'tokens') {
       const { data } = await supabase.from('tokens').select('*').order('created_at', { ascending: false });
       setTokens(data || []);
@@ -393,13 +438,16 @@ const Admin = () => {
         name: product.name,
         price: product.price,
         duration: product.duration || '',
-        available: product.available || 0
+        available: product.available || 0,
+        instant_delivery: product.instant_delivery || false
       });
       setNewProductOptions([]);
+      setNewStockItems('');
     } else {
       setEditingProduct(null);
-      setProductForm({ name: '', price: 0, duration: '', available: 0 });
+      setProductForm({ name: '', price: 0, duration: '', available: 0, instant_delivery: false });
       setNewProductOptions([]);
+      setNewStockItems('');
     }
     setShowProductModal(true);
   };
@@ -431,7 +479,8 @@ const Admin = () => {
           name: productForm.name,
           price: productForm.price,
           duration: productForm.duration || null,
-          available: productForm.available
+          available: productForm.available,
+          instant_delivery: productForm.instant_delivery
         })
         .eq('id', editingProduct.id);
 
@@ -448,7 +497,8 @@ const Admin = () => {
           name: productForm.name,
           price: productForm.price,
           duration: productForm.duration || null,
-          available: productForm.available
+          available: productForm.available,
+          instant_delivery: productForm.instant_delivery
         })
         .select('id')
         .single();
@@ -475,6 +525,22 @@ const Admin = () => {
           const { error: optionsError } = await supabase.from('product_options').insert(optionsToInsert);
           if (optionsError) {
             toast({ title: 'تحذير', description: 'تم إضافة المنتج لكن فشل في إضافة بعض الخيارات', variant: 'destructive' });
+          }
+        }
+      }
+
+      // Add stock items if instant delivery is enabled
+      if (productForm.instant_delivery && newStockItems.trim()) {
+        const items = newStockItems.split('\n').filter(item => item.trim());
+        if (items.length > 0) {
+          const stockToInsert = items.map(content => ({
+            product_id: newProduct.id,
+            content: content.trim(),
+            is_sold: false
+          }));
+          const { error: stockError } = await supabase.from('stock_items').insert(stockToInsert);
+          if (stockError) {
+            toast({ title: 'تحذير', description: 'تم إضافة المنتج لكن فشل في إضافة المخزون', variant: 'destructive' });
           }
         }
       }
@@ -653,6 +719,56 @@ const Admin = () => {
     return productOptions.filter(opt => opt.product_id === productId);
   };
 
+  const getProductStock = (productId: string) => {
+    return stockItems.filter(item => item.product_id === productId && !item.is_sold);
+  };
+
+  // Stock modal handlers
+  const openStockModal = (productId: string) => {
+    setCurrentStockProductId(productId);
+    setNewStockItems('');
+    setShowStockModal(true);
+  };
+
+  const handleAddStock = async () => {
+    if (!currentStockProductId || !newStockItems.trim()) {
+      toast({ title: 'خطأ', description: 'يرجى إدخال عناصر المخزون', variant: 'destructive' });
+      return;
+    }
+
+    const items = newStockItems.split('\n').filter(item => item.trim());
+    if (items.length === 0) {
+      toast({ title: 'خطأ', description: 'يرجى إدخال عناصر المخزون', variant: 'destructive' });
+      return;
+    }
+
+    const stockToInsert = items.map(content => ({
+      product_id: currentStockProductId,
+      content: content.trim(),
+      is_sold: false
+    }));
+
+    const { error } = await supabase.from('stock_items').insert(stockToInsert);
+    if (error) {
+      toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'تم', description: `تم إضافة ${items.length} عنصر للمخزون` });
+      setShowStockModal(false);
+      setNewStockItems('');
+      fetchData();
+    }
+  };
+
+  const handleDeleteStockItem = async (id: string) => {
+    const { error } = await supabase.from('stock_items').delete().eq('id', id);
+    if (error) {
+      toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'تم', description: 'تم حذف العنصر' });
+      fetchData();
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -777,6 +893,7 @@ const Admin = () => {
                     key={product.id}
                     product={product}
                     options={getProductOptions(product.id)}
+                    stockCount={getProductStock(product.id).length}
                     isExpanded={expandedProduct === product.id}
                     onToggleExpand={() => setExpandedProduct(expandedProduct === product.id ? null : product.id)}
                     onEdit={() => openProductModal(product)}
@@ -784,6 +901,7 @@ const Admin = () => {
                     onAddOption={() => openOptionModal(product.id)}
                     onEditOption={(option) => openOptionModal(product.id, option)}
                     onDeleteOption={handleDeleteOption}
+                    onManageStock={() => openStockModal(product.id)}
                   />
                 ))}
               </div>
@@ -890,6 +1008,47 @@ const Admin = () => {
                   onChange={(e) => setProductForm({ ...productForm, duration: e.target.value })}
                   className="input-field w-full"
                 />
+              </div>
+
+              {/* Instant Delivery Toggle */}
+              <div className="border border-border rounded-lg p-4 bg-muted/30">
+                <label className="flex items-center justify-between cursor-pointer">
+                  <div className="flex items-center gap-3">
+                    <Zap className="w-5 h-5 text-success" />
+                    <div>
+                      <p className="font-medium">استلام فوري</p>
+                      <p className="text-xs text-muted-foreground">العميل يستلم المنتج تلقائياً بعد الدفع</p>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={productForm.instant_delivery}
+                    onChange={(e) => setProductForm({ ...productForm, instant_delivery: e.target.checked })}
+                    className="w-5 h-5 accent-success"
+                  />
+                </label>
+
+                {/* Stock Items Input - Only show for new products with instant delivery */}
+                {productForm.instant_delivery && !editingProduct && (
+                  <div className="mt-4 pt-4 border-t border-border">
+                    <label className="text-sm font-medium text-muted-foreground mb-2 block flex items-center gap-2">
+                      <Database className="w-4 h-4" />
+                      عناصر المخزون (كل سطر = عنصر واحد)
+                    </label>
+                    <textarea
+                      placeholder="أدخل كل حساب أو كود في سطر منفصل...&#10;مثال:&#10;email1@gmail.com:password1&#10;email2@gmail.com:password2"
+                      value={newStockItems}
+                      onChange={(e) => setNewStockItems(e.target.value)}
+                      className="input-field w-full h-32 font-mono text-sm"
+                    />
+                    {newStockItems.trim() && (
+                      <p className="text-xs text-success mt-2 flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" />
+                        {newStockItems.split('\n').filter(item => item.trim()).length} عنصر سيتم إضافته للمخزون
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Service Types / Options Section - Only for new products */}
@@ -1086,6 +1245,87 @@ const Admin = () => {
               </button>
               <button onClick={() => setShowTokenModal(false)} className="px-6 py-3 border border-border rounded-lg hover:bg-muted transition-colors">
                 إلغاء
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Stock Management Modal */}
+      {showStockModal && currentStockProductId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-card rounded-2xl w-full max-w-lg shadow-2xl my-8">
+            <div className="p-6 border-b border-border">
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <Database className="w-5 h-5 text-success" />
+                إدارة المخزون
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                المتوفر حالياً: {getProductStock(currentStockProductId).length} عنصر
+              </p>
+            </div>
+            <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+              {/* Add new items */}
+              <div>
+                <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                  إضافة عناصر جديدة (كل سطر = عنصر واحد)
+                </label>
+                <textarea
+                  placeholder="أدخل كل حساب أو كود في سطر منفصل..."
+                  value={newStockItems}
+                  onChange={(e) => setNewStockItems(e.target.value)}
+                  className="input-field w-full h-32 font-mono text-sm"
+                />
+                {newStockItems.trim() && (
+                  <div className="flex items-center justify-between mt-2">
+                    <p className="text-xs text-success flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" />
+                      {newStockItems.split('\n').filter(item => item.trim()).length} عنصر جديد
+                    </p>
+                    <button
+                      onClick={handleAddStock}
+                      className="btn-primary text-sm px-4 py-2 flex items-center gap-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                      إضافة للمخزون
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Current stock items */}
+              <div className="border-t border-border pt-4">
+                <label className="text-sm font-medium text-muted-foreground mb-3 block">
+                  العناصر المتوفرة ({getProductStock(currentStockProductId).length})
+                </label>
+                {getProductStock(currentStockProductId).length === 0 ? (
+                  <div className="text-center py-6 text-muted-foreground bg-muted/30 rounded-lg">
+                    <Database className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">لا توجد عناصر في المخزون</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {getProductStock(currentStockProductId).map((item) => (
+                      <div key={item.id} className="bg-muted/30 p-2 rounded-lg flex items-center justify-between gap-2">
+                        <code className="text-xs font-mono truncate flex-1">{item.content}</code>
+                        <button
+                          onClick={() => handleDeleteStockItem(item.id)}
+                          className="p-1 text-destructive hover:bg-destructive/10 rounded"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="p-6 border-t border-border">
+              <button
+                onClick={() => setShowStockModal(false)}
+                className="w-full py-3 border border-border rounded-lg hover:bg-muted transition-colors"
+              >
+                إغلاق
               </button>
             </div>
           </div>
