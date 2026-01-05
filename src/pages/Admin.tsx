@@ -384,11 +384,11 @@ const Admin = () => {
 
   // Form states
   const [productForm, setProductForm] = useState({ name: '', price: 0, duration: '', available: 0, instant_delivery: false });
-  const [optionForm, setOptionForm] = useState({ name: '', type: 'email_password', description: '', estimated_time: '', price: 0 });
+  const [optionForm, setOptionForm] = useState({ name: '', type: 'email_password', description: '', estimated_time: '', price: 0, duration: '', delivery_type: 'manual' });
   const [tokenForm, setTokenForm] = useState({ token: '', balance: 0 });
   
   // New options to add with product
-  const [newProductOptions, setNewProductOptions] = useState<Array<{ name: string; price: number; description: string; estimated_time: string; input_type: string }>>([]);
+  const [newProductOptions, setNewProductOptions] = useState<Array<{ name: string; price: number; description: string; estimated_time: string; input_type: string; duration: string; delivery_type: string; stock_content: string }>>([]);
   
   // Stock items for instant delivery
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
@@ -473,7 +473,7 @@ const Admin = () => {
   };
 
   const addNewProductOption = () => {
-    setNewProductOptions([...newProductOptions, { name: '', price: 0, description: '', estimated_time: '', input_type: 'none' }]);
+    setNewProductOptions([...newProductOptions, { name: '', price: 0, description: '', estimated_time: '', input_type: 'none', duration: '', delivery_type: 'manual', stock_content: '' }]);
   };
 
   const updateNewProductOption = (index: number, field: string, value: string | number) => {
@@ -530,37 +530,35 @@ const Admin = () => {
 
       // Add options if any
       if (newProductOptions.length > 0) {
-        const optionsToInsert = newProductOptions
-          .filter(opt => opt.name.trim())
-          .map(opt => ({
+        for (const opt of newProductOptions.filter(o => o.name.trim())) {
+          // Insert the option
+          const { data: insertedOption, error: optError } = await supabase.from('product_options').insert({
             product_id: newProduct.id,
             name: opt.name,
-            type: opt.input_type || 'email_password',
+            type: opt.delivery_type === 'auto' ? 'none' : (opt.input_type || 'email_password'),
             description: opt.description || null,
             estimated_time: opt.estimated_time || null,
-            price: opt.price || 0
-          }));
+            price: opt.price || 0,
+            duration: opt.duration || null
+          }).select('id').single();
 
-        if (optionsToInsert.length > 0) {
-          const { error: optionsError } = await supabase.from('product_options').insert(optionsToInsert);
-          if (optionsError) {
-            toast({ title: 'تحذير', description: 'تم إضافة المنتج لكن فشل في إضافة بعض الخيارات', variant: 'destructive' });
+          if (optError || !insertedOption) {
+            toast({ title: 'تحذير', description: 'فشل في إضافة بعض المنتجات', variant: 'destructive' });
+            continue;
           }
-        }
-      }
 
-      // Add stock items if instant delivery is enabled
-      if (productForm.instant_delivery && newStockItems.trim()) {
-        const items = newStockItems.split('\n').filter(item => item.trim());
-        if (items.length > 0) {
-          const stockToInsert = items.map(content => ({
-            product_id: newProduct.id,
-            content: content.trim(),
-            is_sold: false
-          }));
-          const { error: stockError } = await supabase.from('stock_items').insert(stockToInsert);
-          if (stockError) {
-            toast({ title: 'تحذير', description: 'تم إضافة المنتج لكن فشل في إضافة المخزون', variant: 'destructive' });
+          // If auto delivery, add stock items for this option
+          if (opt.delivery_type === 'auto' && opt.stock_content.trim()) {
+            const items = opt.stock_content.split('\n').filter(item => item.trim());
+            if (items.length > 0) {
+              const stockToInsert = items.map(content => ({
+                product_id: newProduct.id,
+                option_id: insertedOption.id,
+                content: content.trim(),
+                is_sold: false
+              }));
+              await supabase.from('stock_items').insert(stockToInsert);
+            }
           }
         }
       }
@@ -588,16 +586,19 @@ const Admin = () => {
     setCurrentProductId(productId);
     if (option) {
       setEditingOption(option);
+      const isAuto = option.type === 'none';
       setOptionForm({
         name: option.name,
         type: option.type || 'email_password',
         description: option.description || '',
         estimated_time: option.estimated_time || '',
-        price: option.price || 0
+        price: option.price || 0,
+        duration: option.duration || '',
+        delivery_type: isAuto ? 'auto' : 'manual'
       });
     } else {
       setEditingOption(null);
-      setOptionForm({ name: '', type: 'none', description: '', estimated_time: '', price: 0 });
+      setOptionForm({ name: '', type: 'none', description: '', estimated_time: '', price: 0, duration: '', delivery_type: 'manual' });
     }
     setShowOptionModal(true);
   };
@@ -608,37 +609,41 @@ const Admin = () => {
       return;
     }
 
+    const typeToSave = optionForm.delivery_type === 'auto' ? 'none' : optionForm.type;
+
     if (editingOption) {
       const { error } = await supabase
         .from('product_options')
         .update({
           name: optionForm.name,
-          type: optionForm.type,
+          type: typeToSave,
           description: optionForm.description || null,
           estimated_time: optionForm.estimated_time || null,
-          price: optionForm.price || 0
+          price: optionForm.price || 0,
+          duration: optionForm.duration || null
         })
         .eq('id', editingOption.id);
 
       if (error) {
         toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
       } else {
-        toast({ title: 'تم', description: 'تم تحديث الخيار بنجاح' });
+        toast({ title: 'تم', description: 'تم تحديث المنتج بنجاح' });
       }
     } else {
       const { error } = await supabase.from('product_options').insert({
         product_id: currentProductId,
         name: optionForm.name,
-        type: optionForm.type,
+        type: typeToSave,
         description: optionForm.description || null,
         estimated_time: optionForm.estimated_time || null,
-        price: optionForm.price || 0
+        price: optionForm.price || 0,
+        duration: optionForm.duration || null
       });
 
       if (error) {
         toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
       } else {
-        toast({ title: 'تم', description: 'تم إضافة الخيار بنجاح' });
+        toast({ title: 'تم', description: 'تم إضافة المنتج بنجاح' });
       }
     }
 
@@ -1023,26 +1028,6 @@ const Admin = () => {
                 </div>
               </div>
 
-              {/* Section 2: Instant Delivery */}
-              <div className="bg-success/5 rounded-xl p-4 border border-success/20">
-                <label className="flex items-center justify-between cursor-pointer">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-success/20 flex items-center justify-center">
-                      <Zap className="w-5 h-5 text-success" />
-                    </div>
-                    <div>
-                      <p className="font-bold text-success">استلام فوري</p>
-                      <p className="text-xs text-muted-foreground">العميل يستلم المنتج تلقائياً من المخزون بعد الدفع</p>
-                    </div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={productForm.instant_delivery}
-                    onChange={(e) => setProductForm({ ...productForm, instant_delivery: e.target.checked })}
-                    className="w-6 h-6 accent-success rounded"
-                  />
-                </label>
-              </div>
 
               {/* Section 3: Products/Options */}
               {!editingProduct && (
@@ -1087,19 +1072,31 @@ const Admin = () => {
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
-                          <div className="grid grid-cols-2 gap-3 mb-3">
+                          
+                          {/* Row 1: Name, Duration, Price */}
+                          <div className="grid grid-cols-3 gap-3 mb-3">
                             <div>
                               <label className="text-xs text-muted-foreground mb-1 block">اسم المنتج *</label>
                               <input
                                 type="text"
-                                placeholder="مثال: شهر واحد"
+                                placeholder="مثال: نتفليكس برايم"
                                 value={opt.name}
                                 onChange={(e) => updateNewProductOption(index, 'name', e.target.value)}
                                 className="input-field text-sm w-full"
                               />
                             </div>
                             <div>
-                              <label className="text-xs text-muted-foreground mb-1 block">السعر ($)</label>
+                              <label className="text-xs text-muted-foreground mb-1 block">مدة الاشتراك</label>
+                              <input
+                                type="text"
+                                placeholder="مثال: شهر واحد"
+                                value={opt.duration}
+                                onChange={(e) => updateNewProductOption(index, 'duration', e.target.value)}
+                                className="input-field text-sm w-full"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs text-muted-foreground mb-1 block">السعر ($) *</label>
                               <input
                                 type="number"
                                 placeholder="0"
@@ -1109,31 +1106,85 @@ const Admin = () => {
                               />
                             </div>
                           </div>
-                          <div className="grid grid-cols-2 gap-3 mb-3">
-                            <div>
-                              <label className="text-xs text-muted-foreground mb-1 block">نوع البيانات المطلوبة</label>
-                              <select
-                                value={opt.input_type}
-                                onChange={(e) => updateNewProductOption(index, 'input_type', e.target.value)}
-                                className="input-field text-sm w-full"
+
+                          {/* Row 2: Delivery Type */}
+                          <div className="mb-3">
+                            <label className="text-xs text-muted-foreground mb-2 block">نوع التسليم</label>
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => updateNewProductOption(index, 'delivery_type', 'manual')}
+                                className={`flex-1 py-2.5 px-3 rounded-lg border text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+                                  opt.delivery_type === 'manual' 
+                                    ? 'bg-warning/10 border-warning text-warning' 
+                                    : 'border-border hover:bg-muted'
+                                }`}
                               >
-                                <option value="none">بدون بيانات (استلام فوري)</option>
-                                <option value="email_password">إيميل وباسورد</option>
-                                <option value="link">رابط فقط</option>
-                                <option value="text">نص</option>
-                              </select>
-                            </div>
-                            <div>
-                              <label className="text-xs text-muted-foreground mb-1 block">الوقت المتوقع</label>
-                              <input
-                                type="text"
-                                placeholder="مثال: 24 ساعة"
-                                value={opt.estimated_time}
-                                onChange={(e) => updateNewProductOption(index, 'estimated_time', e.target.value)}
-                                className="input-field text-sm w-full"
-                              />
+                                <Clock className="w-4 h-4" />
+                                يدوي (خدمات)
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => updateNewProductOption(index, 'delivery_type', 'auto')}
+                                className={`flex-1 py-2.5 px-3 rounded-lg border text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+                                  opt.delivery_type === 'auto' 
+                                    ? 'bg-success/10 border-success text-success' 
+                                    : 'border-border hover:bg-muted'
+                                }`}
+                              >
+                                <Zap className="w-4 h-4" />
+                                تلقائي (اكونتات)
+                              </button>
                             </div>
                           </div>
+
+                          {/* Manual: Show input type required from customer */}
+                          {opt.delivery_type === 'manual' && (
+                            <div className="grid grid-cols-2 gap-3 mb-3 p-3 bg-warning/5 rounded-lg border border-warning/20">
+                              <div>
+                                <label className="text-xs text-muted-foreground mb-1 block">البيانات المطلوبة من العميل</label>
+                                <select
+                                  value={opt.input_type}
+                                  onChange={(e) => updateNewProductOption(index, 'input_type', e.target.value)}
+                                  className="input-field text-sm w-full"
+                                >
+                                  <option value="email_password">إيميل وباسورد</option>
+                                  <option value="link">رابط فقط</option>
+                                  <option value="text">نص</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="text-xs text-muted-foreground mb-1 block">الوقت المتوقع للتنفيذ</label>
+                                <input
+                                  type="text"
+                                  placeholder="مثال: 24 ساعة"
+                                  value={opt.estimated_time}
+                                  onChange={(e) => updateNewProductOption(index, 'estimated_time', e.target.value)}
+                                  className="input-field text-sm w-full"
+                                />
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Auto: Show stock content input */}
+                          {opt.delivery_type === 'auto' && (
+                            <div className="p-3 bg-success/5 rounded-lg border border-success/20 mb-3">
+                              <label className="text-xs text-muted-foreground mb-1 block">
+                                الداتا للعميل (كل سطر = منتج واحد)
+                              </label>
+                              <textarea
+                                placeholder="مثال:&#10;email1@gmail.com:password123&#10;email2@gmail.com:password456"
+                                value={opt.stock_content}
+                                onChange={(e) => updateNewProductOption(index, 'stock_content', e.target.value)}
+                                className="input-field text-sm w-full h-24 resize-none font-mono"
+                              />
+                              <p className="text-xs text-muted-foreground mt-1">
+                                المخزون الحالي: {opt.stock_content.split('\n').filter(line => line.trim()).length} منتج
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Description */}
                           <div>
                             <label className="text-xs text-muted-foreground mb-1 block">وصف (اختياري)</label>
                             <input
@@ -1151,20 +1202,6 @@ const Admin = () => {
                 </div>
               )}
 
-              {/* Note about stock */}
-              {productForm.instant_delivery && !editingProduct && (
-                <div className="bg-warning/10 rounded-xl p-4 border border-warning/30">
-                  <div className="flex items-start gap-3">
-                    <Database className="w-5 h-5 text-warning mt-0.5" />
-                    <div>
-                      <p className="font-medium text-warning">ملاحظة عن المخزون</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        بعد إنشاء القسم والمنتجات، يمكنك إضافة المخزون لكل منتج على حدة من خلال زر إدارة المخزون بجانب كل منتج.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
             
             {/* Footer */}
@@ -1188,52 +1225,116 @@ const Admin = () => {
             <div className="p-6 border-b border-border">
               <h2 className="text-xl font-bold">{editingOption ? 'تعديل المنتج' : 'إضافة منتج جديد'}</h2>
             </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="text-sm font-medium text-muted-foreground mb-2 block">اسم المنتج *</label>
-                <input
-                  type="text"
-                  placeholder="مثال: حساب جيميل - سنة"
-                  value={optionForm.name}
-                  onChange={(e) => setOptionForm({ ...optionForm, name: e.target.value })}
-                  className="input-field w-full"
-                />
+            <div className="p-6 space-y-4 max-h-[65vh] overflow-y-auto">
+              {/* Row 1: Name, Duration, Price */}
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground mb-2 block">اسم المنتج *</label>
+                  <input
+                    type="text"
+                    placeholder="مثال: نتفليكس برايم"
+                    value={optionForm.name}
+                    onChange={(e) => setOptionForm({ ...optionForm, name: e.target.value })}
+                    className="input-field w-full"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground mb-2 block">مدة الاشتراك</label>
+                  <input
+                    type="text"
+                    placeholder="مثال: شهر واحد"
+                    value={optionForm.duration}
+                    onChange={(e) => setOptionForm({ ...optionForm, duration: e.target.value })}
+                    className="input-field w-full"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground mb-2 block">السعر ($) *</label>
+                  <input
+                    type="number"
+                    placeholder="0"
+                    value={optionForm.price}
+                    onChange={(e) => setOptionForm({ ...optionForm, price: parseFloat(e.target.value) || 0 })}
+                    className="input-field w-full"
+                  />
+                </div>
               </div>
+
+              {/* Delivery Type */}
               <div>
-                <label className="text-sm font-medium text-muted-foreground mb-2 block">نوع المدخلات المطلوبة</label>
-                <select
-                  value={optionForm.type}
-                  onChange={(e) => setOptionForm({ ...optionForm, type: e.target.value })}
-                  className="input-field w-full"
-                >
-                  <option value="none">بدون بيانات (استلام فوري)</option>
-                  <option value="email_password">إيميل وباسورد</option>
-                  <option value="link">رابط فقط</option>
-                  <option value="text">نص</option>
-                </select>
+                <label className="text-sm font-medium text-muted-foreground mb-2 block">نوع التسليم</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setOptionForm({ ...optionForm, delivery_type: 'manual' })}
+                    className={`flex-1 py-2.5 px-3 rounded-lg border text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+                      optionForm.delivery_type === 'manual' 
+                        ? 'bg-warning/10 border-warning text-warning' 
+                        : 'border-border hover:bg-muted'
+                    }`}
+                  >
+                    <Clock className="w-4 h-4" />
+                    يدوي (خدمات)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setOptionForm({ ...optionForm, delivery_type: 'auto' })}
+                    className={`flex-1 py-2.5 px-3 rounded-lg border text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+                      optionForm.delivery_type === 'auto' 
+                        ? 'bg-success/10 border-success text-success' 
+                        : 'border-border hover:bg-muted'
+                    }`}
+                  >
+                    <Zap className="w-4 h-4" />
+                    تلقائي (اكونتات)
+                  </button>
+                </div>
               </div>
+
+              {/* Manual: Show input type required from customer */}
+              {optionForm.delivery_type === 'manual' && (
+                <div className="grid grid-cols-2 gap-3 p-3 bg-warning/5 rounded-lg border border-warning/20">
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground mb-2 block">البيانات المطلوبة من العميل</label>
+                    <select
+                      value={optionForm.type}
+                      onChange={(e) => setOptionForm({ ...optionForm, type: e.target.value })}
+                      className="input-field w-full"
+                    >
+                      <option value="email_password">إيميل وباسورد</option>
+                      <option value="link">رابط فقط</option>
+                      <option value="text">نص</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground mb-2 block">الوقت المتوقع للتنفيذ</label>
+                    <input
+                      type="text"
+                      placeholder="مثال: 24 ساعة"
+                      value={optionForm.estimated_time}
+                      onChange={(e) => setOptionForm({ ...optionForm, estimated_time: e.target.value })}
+                      className="input-field w-full"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Auto: Show note about stock */}
+              {optionForm.delivery_type === 'auto' && (
+                <div className="p-3 bg-success/5 rounded-lg border border-success/20">
+                  <p className="text-sm text-success font-medium flex items-center gap-2">
+                    <Zap className="w-4 h-4" />
+                    استلام فوري من المخزون
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    يمكنك إضافة المخزون من خلال زر "إدارة المخزون" بجانب المنتج
+                  </p>
+                </div>
+              )}
+
+              {/* Description */}
               <div>
-                <label className="text-sm font-medium text-muted-foreground mb-2 block">السعر ($)</label>
-                <input
-                  type="number"
-                  placeholder="0"
-                  value={optionForm.price}
-                  onChange={(e) => setOptionForm({ ...optionForm, price: parseFloat(e.target.value) || 0 })}
-                  className="input-field w-full"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground mb-2 block">الوقت المتوقع</label>
-                <input
-                  type="text"
-                  placeholder="مثال: 24 ساعة"
-                  value={optionForm.estimated_time}
-                  onChange={(e) => setOptionForm({ ...optionForm, estimated_time: e.target.value })}
-                  className="input-field w-full"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground mb-2 block">الوصف</label>
+                <label className="text-sm font-medium text-muted-foreground mb-2 block">الوصف (اختياري)</label>
                 <input
                   type="text"
                   placeholder="وصف مختصر للمنتج..."
