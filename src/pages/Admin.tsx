@@ -332,7 +332,7 @@ const Admin = () => {
   const [tokenForm, setTokenForm] = useState({ token: '', balance: 0 });
   
   // New options to add with product
-  const [newProductOptions, setNewProductOptions] = useState<Array<{ name: string; type: string; description: string; estimated_time: string }>>([]);
+  const [newProductOptions, setNewProductOptions] = useState<Array<{ name: string; price: number; description: string; estimated_time: string }>>([]);
 
   useEffect(() => {
     checkAuth();
@@ -405,10 +405,10 @@ const Admin = () => {
   };
 
   const addNewProductOption = () => {
-    setNewProductOptions([...newProductOptions, { name: '', type: 'full_activation', description: '', estimated_time: '' }]);
+    setNewProductOptions([...newProductOptions, { name: '', price: 0, description: '', estimated_time: '' }]);
   };
 
-  const updateNewProductOption = (index: number, field: string, value: string) => {
+  const updateNewProductOption = (index: number, field: string, value: string | number) => {
     const updated = [...newProductOptions];
     updated[index] = { ...updated[index], [field]: value };
     setNewProductOptions(updated);
@@ -465,10 +465,10 @@ const Admin = () => {
           .map(opt => ({
             product_id: newProduct.id,
             name: opt.name,
-            type: opt.type,
+            type: 'custom',
             description: opt.description || null,
             estimated_time: opt.estimated_time || null,
-            price: 0
+            price: opt.price || 0
           }));
 
         if (optionsToInsert.length > 0) {
@@ -927,30 +927,29 @@ const Admin = () => {
                               <X className="w-4 h-4" />
                             </button>
                           </div>
-                          <input
-                            type="text"
-                            placeholder="اسم الخدمة (مثال: تفعيل كامل)"
-                            value={opt.name}
-                            onChange={(e) => updateNewProductOption(index, 'name', e.target.value)}
-                            className="input-field w-full text-sm"
-                          />
                           <div className="grid grid-cols-2 gap-2">
-                            <select
-                              value={opt.type}
-                              onChange={(e) => updateNewProductOption(index, 'type', e.target.value)}
-                              className="input-field text-sm"
-                            >
-                              <option value="full_activation">تفعيل كامل</option>
-                              <option value="student_verification">تخطي تحقق الطالب</option>
-                            </select>
                             <input
                               type="text"
-                              placeholder="الوقت المتوقع"
-                              value={opt.estimated_time}
-                              onChange={(e) => updateNewProductOption(index, 'estimated_time', e.target.value)}
+                              placeholder="اسم الخدمة"
+                              value={opt.name}
+                              onChange={(e) => updateNewProductOption(index, 'name', e.target.value)}
+                              className="input-field text-sm"
+                            />
+                            <input
+                              type="number"
+                              placeholder="السعر ($)"
+                              value={opt.price || ''}
+                              onChange={(e) => updateNewProductOption(index, 'price', parseFloat(e.target.value) || 0)}
                               className="input-field text-sm"
                             />
                           </div>
+                          <input
+                            type="text"
+                            placeholder="الوقت المتوقع (مثال: 24 ساعة)"
+                            value={opt.estimated_time}
+                            onChange={(e) => updateNewProductOption(index, 'estimated_time', e.target.value)}
+                            className="input-field w-full text-sm"
+                          />
                           <input
                             type="text"
                             placeholder="وصف الخدمة (اختياري)"
