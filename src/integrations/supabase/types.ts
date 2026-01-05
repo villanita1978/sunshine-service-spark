@@ -21,6 +21,7 @@ export type Database = {
           email: string | null
           id: string
           option_id: string | null
+          password: string | null
           product_id: string | null
           response_message: string | null
           status: string
@@ -33,6 +34,7 @@ export type Database = {
           email?: string | null
           id?: string
           option_id?: string | null
+          password?: string | null
           product_id?: string | null
           response_message?: string | null
           status?: string
@@ -45,6 +47,7 @@ export type Database = {
           email?: string | null
           id?: string
           option_id?: string | null
+          password?: string | null
           product_id?: string | null
           response_message?: string | null
           status?: string
