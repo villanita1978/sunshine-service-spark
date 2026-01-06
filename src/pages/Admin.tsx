@@ -1,12 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { 
   Package, Key, ShoppingBag, LogOut, Plus, Trash2, Edit2, Save, X, 
   ChevronDown, ChevronUp, Settings, Copy, Eye, EyeOff, Clock, CheckCircle2,
-  XCircle, Loader2, LayoutGrid, Zap, Database
+  XCircle, Loader2, LayoutGrid, Zap, Database, Bell, BellOff
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useOrderNotification } from '@/hooks/useOrderNotification';
 
 interface Product {
   id: string;
@@ -386,6 +387,7 @@ const Admin = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedProduct, setExpandedProduct] = useState<string | null>(null);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -414,6 +416,17 @@ const Admin = () => {
   const [showStockModal, setShowStockModal] = useState(false);
   const [currentStockProductId, setCurrentStockProductId] = useState<string | null>(null);
   const [currentStockOptionId, setCurrentStockOptionId] = useState<string | null>(null);
+
+  // Order notification callback
+  const handleNewOrderNotification = useCallback(async () => {
+    if (activeTab === 'orders') {
+      const { data } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
+      setOrders(data || []);
+    }
+  }, [activeTab]);
+
+  // Use order notification hook
+  useOrderNotification(handleNewOrderNotification, notificationsEnabled);
 
   useEffect(() => {
     checkAuth();
@@ -855,13 +868,27 @@ const Admin = () => {
                 <p className="text-xs text-muted-foreground">إدارة المنتجات والطلبات</p>
               </div>
             </div>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 px-4 py-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
-            >
-              <LogOut className="w-5 h-5" />
-              <span className="hidden sm:inline">خروج</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setNotificationsEnabled(!notificationsEnabled)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                  notificationsEnabled 
+                    ? 'bg-success/10 text-success hover:bg-success/20' 
+                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                }`}
+                title={notificationsEnabled ? 'إيقاف الإشعارات' : 'تفعيل الإشعارات'}
+              >
+                {notificationsEnabled ? <Bell className="w-5 h-5" /> : <BellOff className="w-5 h-5" />}
+                <span className="hidden sm:inline text-sm">{notificationsEnabled ? 'الإشعارات مفعلة' : 'الإشعارات متوقفة'}</span>
+              </button>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 px-4 py-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
+              >
+                <LogOut className="w-5 h-5" />
+                <span className="hidden sm:inline">خروج</span>
+              </button>
+            </div>
           </div>
         </div>
       </header>
