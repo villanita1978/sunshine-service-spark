@@ -7,71 +7,76 @@ export const useOrderNotification = (
   isActive: boolean = true
 ) => {
   const { toast } = useToast();
-  const hasSubscribedRef = useRef(false);
+  const isReadyRef = useRef(false);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const playNotificationSound = useCallback(() => {
-    // Create a notification sound using Web Audio API
+    console.log('🔊 Playing notification sound...');
     try {
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       
-      // Create oscillator for notification beep
+      // First beep
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
       
       oscillator.connect(gainNode);
       gainNode.connect(audioContext.destination);
       
-      // Configure sound (pleasant notification tone)
-      oscillator.frequency.setValueAtTime(880, audioContext.currentTime); // A5 note
+      oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
       oscillator.type = 'sine';
       
-      // Volume envelope
       gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-      gainNode.gain.linearRampToValueAtTime(0.4, audioContext.currentTime + 0.05);
-      gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.3);
+      gainNode.gain.linearRampToValueAtTime(0.5, audioContext.currentTime + 0.02);
+      gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.25);
       
       oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.3);
+      oscillator.stop(audioContext.currentTime + 0.25);
       
-      // Play second beep
+      // Second beep after 200ms
       setTimeout(() => {
         try {
-          const osc2 = audioContext.createOscillator();
-          const gain2 = audioContext.createGain();
+          const audioContext2 = new (window.AudioContext || (window as any).webkitAudioContext)();
+          const osc2 = audioContext2.createOscillator();
+          const gain2 = audioContext2.createGain();
           
           osc2.connect(gain2);
-          gain2.connect(audioContext.destination);
+          gain2.connect(audioContext2.destination);
           
-          osc2.frequency.setValueAtTime(1046.5, audioContext.currentTime); // C6 note
+          osc2.frequency.setValueAtTime(1046.5, audioContext2.currentTime);
           osc2.type = 'sine';
           
-          gain2.gain.setValueAtTime(0, audioContext.currentTime);
-          gain2.gain.linearRampToValueAtTime(0.4, audioContext.currentTime + 0.05);
-          gain2.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.3);
+          gain2.gain.setValueAtTime(0, audioContext2.currentTime);
+          gain2.gain.linearRampToValueAtTime(0.5, audioContext2.currentTime + 0.02);
+          gain2.gain.linearRampToValueAtTime(0, audioContext2.currentTime + 0.25);
           
-          osc2.start(audioContext.currentTime);
-          osc2.stop(audioContext.currentTime + 0.3);
+          osc2.start(audioContext2.currentTime);
+          osc2.stop(audioContext2.currentTime + 0.25);
+          console.log('🔊 Sound played successfully');
         } catch (e) {
-          console.log('Second beep failed:', e);
+          console.error('Second beep failed:', e);
         }
-      }, 150);
+      }, 200);
 
     } catch (error) {
-      console.log('Audio notification not supported:', error);
+      console.error('Audio notification failed:', error);
     }
   }, []);
 
   useEffect(() => {
     if (!isActive) {
-      console.log('Order notifications disabled');
+      console.log('❌ Order notifications disabled');
       return;
     }
 
-    console.log('Setting up order notification subscription...');
+    console.log('🔔 Setting up realtime subscription for orders...');
+    
+    // Clean up existing channel if any
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+    }
 
-    // Subscribe to new orders using schema-db-changes channel
     const channel = supabase
-      .channel('schema-db-changes')
+      .channel('orders-realtime-' + Date.now())
       .on(
         'postgres_changes',
         {
@@ -80,43 +85,48 @@ export const useOrderNotification = (
           table: 'orders'
         },
         (payload) => {
-          console.log('🔔 New order received via realtime:', payload);
+          console.log('📦 New order event received:', payload);
           
-          // Skip if we just subscribed (avoid duplicate notifications)
-          if (!hasSubscribedRef.current) {
-            console.log('Skipping - not fully subscribed yet');
+          if (!isReadyRef.current) {
+            console.log('⏳ Skipping - still initializing');
             return;
           }
 
+          console.log('✅ Processing new order notification');
+          
           // Play sound
           playNotificationSound();
           
-          // Show toast notification
+          // Show toast
           toast({
             title: '🔔 طلب جديد!',
             description: `تم استلام طلب جديد بقيمة $${(payload.new as any).amount}`,
           });
           
-          // Refresh orders
+          // Callback
           onNewOrder();
         }
       )
       .subscribe((status) => {
-        console.log('Realtime subscription status:', status);
+        console.log('📡 Subscription status:', status);
         if (status === 'SUBSCRIBED') {
-          console.log('✅ Successfully subscribed to order notifications');
-          // Wait a moment before enabling notifications to avoid false triggers
+          console.log('✅ Realtime subscription active');
           setTimeout(() => {
-            hasSubscribedRef.current = true;
-            console.log('Notifications enabled');
-          }, 2000);
+            isReadyRef.current = true;
+            console.log('🟢 Ready to receive notifications');
+          }, 1500);
         }
       });
 
+    channelRef.current = channel;
+
     return () => {
-      console.log('Cleaning up order notification subscription');
-      hasSubscribedRef.current = false;
-      supabase.removeChannel(channel);
+      console.log('🧹 Cleaning up subscription');
+      isReadyRef.current = false;
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
     };
   }, [isActive, onNewOrder, playNotificationSound, toast]);
 
