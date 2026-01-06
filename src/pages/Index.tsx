@@ -31,6 +31,7 @@ interface ProductOption {
   type: string | null;
   description: string | null;
   estimated_time: string | null;
+  is_active: boolean;
 }
 
 interface Order {
@@ -434,9 +435,10 @@ const Index = () => {
                     {options.map((opt) => {
                         const stockCount = optionStockCounts[opt.id] || 0;
                         const isAutoDelivery = opt.type === 'none' || !opt.type;
+                        const isUnavailable = (isAutoDelivery && stockCount === 0) || opt.is_active === false;
                         return (
-                          <SelectItem key={opt.id} value={opt.id} disabled={isAutoDelivery && stockCount === 0}>
-                            {opt.name}
+                          <SelectItem key={opt.id} value={opt.id} disabled={isUnavailable}>
+                            {opt.name} {opt.is_active === false && '(غير متاح حالياً)'}
                           </SelectItem>
                         );
                       })}
@@ -456,6 +458,19 @@ const Index = () => {
                           {selectedOption.duration && (
                             <span className="text-xs bg-muted-foreground/10 text-muted-foreground px-2 py-0.5 rounded-full">
                               {selectedOption.duration}
+                            </span>
+                          )}
+                          {/* Service status indicator */}
+                          {selectedOption.type !== 'none' && selectedOption.type && (
+                            <span className={`text-xs px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                              selectedOption.is_active !== false
+                                ? 'bg-success/10 text-success'
+                                : 'bg-destructive/10 text-destructive'
+                            }`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${
+                                selectedOption.is_active !== false ? 'bg-success' : 'bg-destructive'
+                              }`} />
+                              {selectedOption.is_active !== false ? 'نشط' : 'غير نشط'}
                             </span>
                           )}
                         </div>
