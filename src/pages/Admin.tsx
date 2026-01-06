@@ -425,6 +425,9 @@ const Admin = () => {
     completedOrders: 0
   });
 
+  // Order filter state
+  const [orderStatusFilter, setOrderStatusFilter] = useState<string>('all');
+
   // Order notification callback
   const handleNewOrderNotification = useCallback(async () => {
     if (activeTab === 'orders') {
@@ -1017,14 +1020,51 @@ const Admin = () => {
         {/* Orders Tab */}
         {activeTab === 'orders' && (
           <div className="space-y-4">
-            {orders.length === 0 ? (
+            {/* Order Filter */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-sm text-muted-foreground">فلترة حسب الحالة:</span>
+              <div className="flex gap-2 flex-wrap">
+                <button
+                  onClick={() => setOrderStatusFilter('all')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    orderStatusFilter === 'all' 
+                      ? 'bg-primary text-primary-foreground' 
+                      : 'bg-card border border-border hover:bg-muted'
+                  }`}
+                >
+                  الكل ({orders.length})
+                </button>
+                {statusOptions.map(opt => {
+                  const count = orders.filter(o => o.status === opt.value).length;
+                  const Icon = opt.icon;
+                  return (
+                    <button
+                      key={opt.value}
+                      onClick={() => setOrderStatusFilter(opt.value)}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+                        orderStatusFilter === opt.value 
+                          ? 'bg-primary text-primary-foreground' 
+                          : 'bg-card border border-border hover:bg-muted'
+                      }`}
+                    >
+                      <Icon className={`w-4 h-4 ${orderStatusFilter === opt.value ? '' : opt.color}`} />
+                      {opt.label} ({count})
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {orders.filter(o => orderStatusFilter === 'all' || o.status === orderStatusFilter).length === 0 ? (
               <div className="text-center py-16 bg-card rounded-xl border border-border">
                 <ShoppingBag className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
-                <p className="text-muted-foreground">لا توجد طلبات حالياً</p>
+                <p className="text-muted-foreground">لا توجد طلبات {orderStatusFilter !== 'all' && 'بهذه الحالة'}</p>
               </div>
             ) : (
               <div className="grid gap-4">
-                {orders.map((order) => (
+                {orders
+                  .filter(o => orderStatusFilter === 'all' || o.status === orderStatusFilter)
+                  .map((order) => (
                   <OrderCard 
                     key={order.id} 
                     order={order} 
