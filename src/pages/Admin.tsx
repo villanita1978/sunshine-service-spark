@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { 
   Package, Key, ShoppingBag, LogOut, Plus, Trash2, Edit2, Save, X, 
   ChevronDown, ChevronUp, Settings, Copy, Eye, EyeOff, Clock, CheckCircle2,
-  XCircle, Loader2, LayoutGrid, Zap, Database, Bell, BellOff
+  XCircle, Loader2, LayoutGrid, Zap, Database, Bell, BellOff, TrendingUp, DollarSign, Users
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useOrderNotification } from '@/hooks/useOrderNotification';
@@ -417,16 +417,58 @@ const Admin = () => {
   const [currentStockProductId, setCurrentStockProductId] = useState<string | null>(null);
   const [currentStockOptionId, setCurrentStockOptionId] = useState<string | null>(null);
 
+  // Statistics state
+  const [todayStats, setTodayStats] = useState({
+    totalEarnings: 0,
+    totalOrders: 0,
+    totalRecharges: 0,
+    completedOrders: 0
+  });
+
   // Order notification callback
   const handleNewOrderNotification = useCallback(async () => {
     if (activeTab === 'orders') {
       const { data } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
       setOrders(data || []);
     }
+    // Also refresh stats
+    fetchTodayStats();
   }, [activeTab]);
 
   // Use order notification hook
   useOrderNotification(handleNewOrderNotification, notificationsEnabled);
+
+  // Fetch today's statistics
+  const fetchTodayStats = async () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayISO = today.toISOString();
+
+    // Get today's orders
+    const { data: todayOrders } = await supabase
+      .from('orders')
+      .select('*')
+      .gte('created_at', todayISO);
+
+    if (todayOrders) {
+      const totalEarnings = todayOrders
+        .filter(o => o.status === 'completed')
+        .reduce((sum, o) => sum + Number(o.amount), 0);
+      
+      const completedOrders = todayOrders.filter(o => o.status === 'completed').length;
+      const totalOrders = todayOrders.length;
+      
+      // Count recharges (orders with token_id)
+      const totalRecharges = todayOrders.filter(o => o.token_id).length;
+
+      setTodayStats({
+        totalEarnings,
+        totalOrders,
+        totalRecharges,
+        completedOrders
+      });
+    }
+  };
 
   useEffect(() => {
     checkAuth();
@@ -435,6 +477,7 @@ const Admin = () => {
   useEffect(() => {
     if (!isLoading) {
       fetchData();
+      fetchTodayStats();
     }
   }, [activeTab, isLoading]);
 
@@ -918,6 +961,57 @@ const Admin = () => {
               </button>
             );
           })}
+        </div>
+
+        {/* Today's Statistics */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-card rounded-xl border border-border p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center">
+                <DollarSign className="w-5 h-5 text-success" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">أرباح اليوم</p>
+                <p className="text-xl font-bold text-success">${todayStats.totalEarnings.toFixed(2)}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-card rounded-xl border border-border p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <ShoppingBag className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">طلبات اليوم</p>
+                <p className="text-xl font-bold">{todayStats.totalOrders}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-card rounded-xl border border-border p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center">
+                <CheckCircle2 className="w-5 h-5 text-info" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">طلبات مكتملة</p>
+                <p className="text-xl font-bold text-info">{todayStats.completedOrders}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-card rounded-xl border border-border p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center">
+                <Users className="w-5 h-5 text-warning" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">شحنات اليوم</p>
+                <p className="text-xl font-bold text-warning">{todayStats.totalRecharges}</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Orders Tab */}
