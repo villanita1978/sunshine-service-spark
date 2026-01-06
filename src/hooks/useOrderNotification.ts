@@ -7,8 +7,7 @@ export const useOrderNotification = (
   isActive: boolean = true
 ) => {
   const { toast } = useToast();
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const initialLoadRef = useRef(true);
+  const hasSubscribedRef = useRef(false);
 
   const playNotificationSound = useCallback(() => {
     // Create a notification sound using Web Audio API
@@ -28,7 +27,7 @@ export const useOrderNotification = (
       
       // Volume envelope
       gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-      gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.05);
+      gainNode.gain.linearRampToValueAtTime(0.4, audioContext.currentTime + 0.05);
       gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.3);
       
       oscillator.start(audioContext.currentTime);
@@ -36,21 +35,25 @@ export const useOrderNotification = (
       
       // Play second beep
       setTimeout(() => {
-        const osc2 = audioContext.createOscillator();
-        const gain2 = audioContext.createGain();
-        
-        osc2.connect(gain2);
-        gain2.connect(audioContext.destination);
-        
-        osc2.frequency.setValueAtTime(1046.5, audioContext.currentTime); // C6 note
-        osc2.type = 'sine';
-        
-        gain2.gain.setValueAtTime(0, audioContext.currentTime);
-        gain2.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.05);
-        gain2.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.3);
-        
-        osc2.start(audioContext.currentTime);
-        osc2.stop(audioContext.currentTime + 0.3);
+        try {
+          const osc2 = audioContext.createOscillator();
+          const gain2 = audioContext.createGain();
+          
+          osc2.connect(gain2);
+          gain2.connect(audioContext.destination);
+          
+          osc2.frequency.setValueAtTime(1046.5, audioContext.currentTime); // C6 note
+          osc2.type = 'sine';
+          
+          gain2.gain.setValueAtTime(0, audioContext.currentTime);
+          gain2.gain.linearRampToValueAtTime(0.4, audioContext.currentTime + 0.05);
+          gain2.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.3);
+          
+          osc2.start(audioContext.currentTime);
+          osc2.stop(audioContext.currentTime + 0.3);
+        } catch (e) {
+          console.log('Second beep failed:', e);
+        }
       }, 150);
 
     } catch (error) {
@@ -59,11 +62,16 @@ export const useOrderNotification = (
   }, []);
 
   useEffect(() => {
-    if (!isActive) return;
+    if (!isActive) {
+      console.log('Order notifications disabled');
+      return;
+    }
 
-    // Subscribe to new orders
+    console.log('Setting up order notification subscription...');
+
+    // Subscribe to new orders using schema-db-changes channel
     const channel = supabase
-      .channel('new-orders')
+      .channel('schema-db-changes')
       .on(
         'postgres_changes',
         {
@@ -72,10 +80,11 @@ export const useOrderNotification = (
           table: 'orders'
         },
         (payload) => {
-          console.log('New order received:', payload);
+          console.log('🔔 New order received via realtime:', payload);
           
-          // Skip notification on initial load
-          if (initialLoadRef.current) {
+          // Skip if we just subscribed (avoid duplicate notifications)
+          if (!hasSubscribedRef.current) {
+            console.log('Skipping - not fully subscribed yet');
             return;
           }
 
@@ -85,7 +94,7 @@ export const useOrderNotification = (
           // Show toast notification
           toast({
             title: '🔔 طلب جديد!',
-            description: `تم استلام طلب جديد بقيمة $${payload.new.amount}`,
+            description: `تم استلام طلب جديد بقيمة $${(payload.new as any).amount}`,
           });
           
           // Refresh orders
@@ -94,15 +103,19 @@ export const useOrderNotification = (
       )
       .subscribe((status) => {
         console.log('Realtime subscription status:', status);
-        // Mark initial load complete after subscription is ready
         if (status === 'SUBSCRIBED') {
+          console.log('✅ Successfully subscribed to order notifications');
+          // Wait a moment before enabling notifications to avoid false triggers
           setTimeout(() => {
-            initialLoadRef.current = false;
-          }, 1000);
+            hasSubscribedRef.current = true;
+            console.log('Notifications enabled');
+          }, 2000);
         }
       });
 
     return () => {
+      console.log('Cleaning up order notification subscription');
+      hasSubscribedRef.current = false;
       supabase.removeChannel(channel);
     };
   }, [isActive, onNewOrder, playNotificationSound, toast]);
