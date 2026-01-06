@@ -37,6 +37,7 @@ interface ProductOption {
   type: string | null;
   description: string | null;
   estimated_time: string | null;
+  is_active: boolean;
 }
 
 interface Token {
@@ -401,7 +402,7 @@ const Admin = () => {
 
   // Form states
   const [productForm, setProductForm] = useState({ name: '', price: 0, duration: '', available: 0, instant_delivery: false });
-  const [optionForm, setOptionForm] = useState({ name: '', type: 'email_password', description: '', estimated_time: '', price: 0, duration: '', delivery_type: 'manual' });
+  const [optionForm, setOptionForm] = useState({ name: '', type: 'email_password', description: '', estimated_time: '', price: 0, duration: '', delivery_type: 'manual', is_active: true });
   const [tokenForm, setTokenForm] = useState({ token: '', balance: 0 });
   
   // New options to add with product
@@ -611,11 +612,12 @@ const Admin = () => {
         estimated_time: option.estimated_time || '',
         price: option.price || 0,
         duration: option.duration || '',
-        delivery_type: isAuto ? 'auto' : 'manual'
+        delivery_type: isAuto ? 'auto' : 'manual',
+        is_active: option.is_active !== false
       });
     } else {
       setEditingOption(null);
-      setOptionForm({ name: '', type: 'email_password', description: '', estimated_time: '', price: 0, duration: '', delivery_type: 'manual' });
+      setOptionForm({ name: '', type: 'email_password', description: '', estimated_time: '', price: 0, duration: '', delivery_type: 'manual', is_active: true });
     }
     setShowOptionModal(true);
   };
@@ -637,7 +639,8 @@ const Admin = () => {
           description: optionForm.description || null,
           estimated_time: optionForm.estimated_time || null,
           price: optionForm.price || 0,
-          duration: optionForm.duration || null
+          duration: optionForm.duration || null,
+          is_active: optionForm.is_active
         })
         .eq('id', editingOption.id);
 
@@ -654,7 +657,8 @@ const Admin = () => {
         description: optionForm.description || null,
         estimated_time: optionForm.estimated_time || null,
         price: optionForm.price || 0,
-        duration: optionForm.duration || null
+        duration: optionForm.duration || null,
+        is_active: optionForm.is_active
       });
 
       if (error) {
@@ -1372,6 +1376,27 @@ const Admin = () => {
                   )}
                 </div>
               )}
+
+              {/* Status Toggle */}
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border">
+                <div>
+                  <p className="text-sm font-medium">حالة الخدمة</p>
+                  <p className="text-xs text-muted-foreground">
+                    {optionForm.is_active ? 'نشط - العملاء يرون أنك متاح' : 'غير نشط - العملاء يرون أنك غير متاح'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOptionForm({ ...optionForm, is_active: !optionForm.is_active })}
+                  className={`relative w-12 h-6 rounded-full transition-colors ${
+                    optionForm.is_active ? 'bg-success' : 'bg-muted-foreground/30'
+                  }`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
+                    optionForm.is_active ? 'right-1' : 'left-1'
+                  }`} />
+                </button>
+              </div>
 
               {/* Description */}
               <div>

@@ -86,6 +86,7 @@ export type Database = {
           duration: string | null
           estimated_time: string | null
           id: string
+          is_active: boolean
           name: string
           price: number
           product_id: string
@@ -99,6 +100,7 @@ export type Database = {
           duration?: string | null
           estimated_time?: string | null
           id?: string
+          is_active?: boolean
           name: string
           price: number
           product_id: string
@@ -112,6 +114,7 @@ export type Database = {
           duration?: string | null
           estimated_time?: string | null
           id?: string
+          is_active?: boolean
           name?: string
           price?: number
           product_id?: string
